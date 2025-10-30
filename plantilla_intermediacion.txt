@@ -1,23 +1,50 @@
-CONTRATO DE INTERMEDIACIÓN INMOBILIARIA
+CONTRATO DE ENCARGO DE INTERMEDIACIÓN INMOBILIARIA
 
-En [Ciudad], a [día] de [mes] de [año].
+En {LUGAR}, a {FECHA}.
 
 REUNIDOS
 
-DE UNA PARTE: D./Dña. [Nombre Cliente], con DNI [DNI Cliente] y domicilio en [Dirección Cliente], en adelante "EL CLIENTE".
+DE UNA PARTE:
+{LISTA_VENDEDORES}
 
-DE OTRA PARTE: HOGAR FELIZ REAL ESTATE S.L., con NIF B-12345678, representada por D./Dña. [Nombre Agente] con DNI [DNI Agente], en adelante "LA AGENCIA".
+DE OTRA PARTE:
+{REPRESENTANTE_INMO}, en nombre y representación de HOGAR FELIZ INMOBILIARIA (CIF {INMO_CIF}), con domicilio en {INMO_DIRECCION}.
 
 EXPONEN
 
-I. Que EL CLIENTE es propietario del inmueble sito en [Dirección Inmueble].
-II. Que LA AGENCIA es una empresa dedicada a la intermediación inmobiliaria.
-III. Ambas partes acuerdan celebrar el presente CONTRATO DE INTERMEDIACIÓN INMOBILIARIA con arreglo a las siguientes:
+I. Que la PARTE VENDEDORA es propietaria del siguiente inmueble:
+   - Dirección: {DIRECCION_INMUEBLE}
+   - Referencia Catastral: {REF_CATASTRAL}
+   - Título de Propiedad: {TITULO_PROPIEDAD}
+   - Cargas: {CARGAS}
+
+II. Que ambas partes se reconocen la capacidad legal necesaria para suscribir el presente contrato y acuerdan las siguientes
 
 CLÁUSULAS
 
-1. OBJETO: EL CLIENTE encarga a LA AGENCIA la gestión de [venta/alquiler] del inmueble descrito.
-2. PRECIO: El precio de [venta/alquiler] se fija en [Precio Inmueble] Euros.
-3. HONORARIOS: Los honorarios de LA AGENCIA serán del [Porcentaje Honorarios]% del precio final.
-4. DURACIÓN: El contrato tendrá una duración de [Duración Contrato] meses.
-...
+PRIMERA.- OBJETO. La PARTE VENDEDORA encarga a HOGAR FELIZ INMOBILIARIA la gestión de venta del inmueble descrito, quien acepta el encargo.
+
+SEGUNDA.- PRECIO. El precio de venta del inmueble se fija en {PRECIO_INMUEBLE} ({PRECIO_INMUEBLE_LETRAS}) Euros.
+
+TERCERA.- HONORARIOS. Los honorarios de la inmobiliaria serán del {HONORARIOS}% del precio final de venta, más el IVA correspondiente.
+
+CUARTA.- EXCLUSIVIDAD. El presente encargo se concede con carácter de {EXCLUSIVIDAD} por un periodo de {MESES_EXCLUSIVIDAD} meses.
+
+QUINTA.- OBLIGACIONES DE LA INMOBILIARIA. La inmobiliaria se compromete a realizar las gestiones de marketing y comercialización necesarias para la venta.
+
+SEXTA.- OBLIGACIONES DE LA PARTE VENDEDORA. La parte vendedora se compromete a facilitar la documentación necesaria y las visitas al inmueble.
+
+SÉPTIMA.- DURACIÓN. El presente contrato tendrá una duración de {MESES_EXCLUSIVIDAD} meses desde la fecha de su firma, prorrogable tácitamente por periodos iguales.
+
+OCTAVA.- JURISDICCIÓN. Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de {LUGAR_JURISDICCION}.
+
+Y en prueba de conformidad, firman el presente documento por duplicado en el lugar y fecha arriba indicados.
+
+
+Fdo.: La Parte Vendedora                 Fdo.: La Inmobiliaria
+
+---
+Este documento ha sido generado por el asistente virtual de Hogar Feliz Inmobiliaria.
+Usuario Generador: {USUARIO_GENERADOR}
+Fecha de Generación: {FECHA_GENERACION}
+URL Datos Inmobiliaria: {URL_DATOS_INMO}

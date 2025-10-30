@@ -1,27 +1,31 @@
 # ./app.py
 
 import chainlit as cl
+import os
+import json
+from datetime import datetime
+
+# Langchain & Ollama
 from langchain_community.llms import Ollama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+
+# Módulos locales
 import auth
 import db
 import config
 import ocr_utils
 import pdf_utils
-from legal import get_legal_context_for_contract, get_initial_legal_html
+import legal
 
 # Inicializar la base de datos al arrancar
-db.initialize_database()
+db.init_db()
 
 # --- Plantillas de Prompts ---
 PROMPT_TEMPLATE = """
 Eres 'JustiBot', un asistente legal experto en la generación de contratos para la inmobiliaria 'Hogar Feliz'.
-Tu tarea es ayudar a los agentes a crear borradores de contratos de alquiler basados en la información proporcionada.
+Tu tarea es ayudar a los agentes a crear borradores de contratos de intermediación inmobiliaria.
 Debes ser preciso, formal y utilizar un lenguaje legal apropiado para España.
-
-**Contexto Legal Relevante:**
-{legal_context}
 
 **Historial de Conversación:**
 {chat_history}
@@ -35,25 +39,57 @@ Debes ser preciso, formal y utilizar un lenguaje legal apropiado para España.
 **Instrucciones Adicionales:**
 1. Si la información es insuficiente, haz preguntas claras y concisas para obtener los detalles que faltan.
 2. No inventes datos. Si no tienes un dato, pregunta por él.
-3. Al final, cuando el agente lo indique con una frase como "genera el contrato" o "ya está todo",
-   proporciona un resumen final y confirma que el documento PDF ha sido generado.
-4. Responde siempre en español.
+3. El flujo principal es conversacional. Responde a las preguntas del agente.
+4. Solo cuando el agente diga explícitamente "generar contrato", iniciarás el flujo de preguntas estructuradas para el contrato.
+5. Responde siempre en español.
 
 **Respuesta del Asistente:**
 """
-
 prompt = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
 
-# --- Funciones de Lógica de la Aplicación ---
+
+# --- LÓGICA DE LOGIN ---
+
+async def local_login_flow():
+    """Maneja el login local con usuario/contraseña de config.py"""
+    user_resp = await cl.AskUserMessage(content="Usuario:", timeout=120).send()
+    if not user_resp: return False
+    username = user_resp["content"].strip().lower()
+
+    if username not in config.LOCAL_USERS:
+        await cl.Message(content="Usuario local incorrecto.").send()
+        return False
+
+    pass_resp = await cl.AskPassword(content="Contraseña:", timeout=120).send()
+    if not pass_resp: return False
+    password = pass_resp
+
+    user_hash = config.LOCAL_USERS[username]
+    if not config.bcrypt_context.verify(password, user_hash):
+        await cl.Message(content="Contraseña incorrecta.").send()
+        return False
+
+    user = db.get_or_create_user(username, f"{username}@local.hogarfamiliar")
+    if not user:
+         await cl.Message(content="Error de base de datos al iniciar sesión.").send()
+         return False
+
+    cl.user_session.set("user", user)
+    return True
+
+async def check_login():
+    """Verifica el login, primero por JWT (SSO) y luego por fallback local."""
+    if await auth.check_jwt_login():
+        return True
+    return await local_login_flow()
+
+
+# --- LÓGICA DE NEGOCIO PRINCIPAL ---
 
 def get_session_chat_history(user_id, session_id):
     """Recupera el historial de chat de la sesión desde la BD y lo formatea."""
     history_tuples = db.get_chat_history(user_id, session_id)
-    history_str = ""
-    for msg, is_user in history_tuples:
-        role = "Agente" if is_user else "Asistente"
-        history_str += f"{role}: {msg}\n"
-    return history_str
+    return "\n".join([f"{'Agente' if is_user else 'Asistente'}: {msg}" for msg, is_user in history_tuples])
 
 def get_ocr_text_from_session():
     """Recupera y formatea el texto OCR de los documentos subidos en la sesión."""
@@ -61,197 +97,168 @@ def get_ocr_text_from_session():
     if not documentos:
         return "No se han analizado documentos todavía."
 
-    ocr_completo = ""
-    for doc in documentos:
-        ocr_completo += f"--- Documento: {doc['nombre_archivo']} ---\n"
-        ocr_completo += doc['texto_ocr']
-        ocr_completo += "\n-------------------------------------\n\n"
-    return ocr_completo
+    ocr_texts = [f"--- Documento: {doc['nombre_archivo']} ---\n{doc['texto_ocr']}" for doc in documentos]
+    return "\n-------------------------------------\n\n".join(ocr_texts)
+
+
+async def generar_contrato_flow():
+    """Guía al usuario para recopilar la información del contrato."""
+    s = cl.user_session
+    user_data = s.get("user")
+    username = user_data['username']
+    user_id = user_data['id']
+
+    datos_contrato = {}
+    preguntas = {
+        "LUGAR": "Lugar de firma del contrato:",
+        "LISTA_VENDEDORES": "Nombre completo y DNI de los vendedores (separados por comas si hay varios):",
+        "DIRECCION_INMUEBLE": "Dirección completa del inmueble:",
+        "REF_CATASTRAL": "Referencia catastral:",
+        "TITULO_PROPIEDAD": "Título de propiedad (ej: escritura de compraventa):",
+        "CARGAS": "Cargas y gravámenes (o 'Ninguna'):",
+        "PRECIO_INMUEBLE": "Precio de venta en cifras (ej: 250000):",
+        "PRECIO_INMUEBLE_LETRAS": "Precio de venta en letras (ej: doscientos cincuenta mil):",
+        "HONORARIOS": "Porcentaje de honorarios (ej: 3):",
+        "EXCLUSIVIDAD": "Tipo de exclusividad (ej: 'exclusiva' o 'no exclusiva'):",
+        "MESES_EXCLUSIVIDAD": "Meses de duración del contrato (ej: 6):",
+        "LUGAR_JURISDICCION": "Lugar de jurisdicción (ciudad):"
+    }
+
+    for clave, pregunta in preguntas.items():
+        res = await cl.AskUserMessage(content=pregunta, timeout=300).send()
+        if not res:
+            await cl.Message("Proceso cancelado por inactividad.").send()
+            return
+        datos_contrato[clave] = res['content']
+
+    await cl.Message("Gracias. Generando el borrador del contrato PDF...").send()
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"borrador_contrato_{username}_{timestamp}.pdf"
+    output_path = os.path.join(config.PDF_DIR, output_filename)
+
+    pdf_path = pdf_utils.generar_contrato_pdf_con_plantilla(datos_contrato, output_path, username)
+
+    if pdf_path:
+        db.guardar_contrato(user_id, json.dumps(datos_contrato), pdf_path)
+        pdf_element = cl.File(name=os.path.basename(pdf_path), path=pdf_path, display="inline")
+        await cl.Message(content="Aquí tienes el borrador del contrato.", elements=[pdf_element]).send()
+    else:
+        await cl.Message("Error al generar el PDF del contrato.").send()
 
 
 async def generar_pdf_documentos():
-    """Genera un PDF con la información y documentos de la sesión."""
-    user = cl.user_session.get("user")
-    chat_history = get_session_chat_history(user['id'], cl.user_session.id)
-    documentos = cl.user_session.get("documentos_subidos", [])
+    """Une los documentos subidos y procesados en un único PDF."""
+    s = cl.user_session
+    user_data = s.get("user")
+    username = user_data['username']
+    documentos = s.get("documentos_subidos", [])
 
-    # Extraer las rutas de las imágenes procesadas
+    if not documentos:
+        await cl.Message("No hay documentos subidos para procesar.").send()
+        return
+
+    await cl.Message("Uniendo los documentos procesados en un único PDF...").send()
+
     rutas_imagenes = [doc['ruta_guardada'] for doc in documentos]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"documentos_{username}_{timestamp}.pdf"
+    output_path = os.path.join(config.PDF_DIR, output_filename)
 
-    pdf_path = pdf_utils.crear_pdf_contrato(
-        user['username'],
-        chat_history,
-        rutas_imagenes
-    )
-    return pdf_path
+    pdf_path = pdf_utils.unir_imagenes_a_pdf(rutas_imagenes, output_path)
 
-# --- Handlers de Chainlit ---
+    if pdf_path:
+        pdf_element = cl.File(name=os.path.basename(pdf_path), path=pdf_path, display="inline")
+        await cl.Message(content="Aquí tienes el PDF con todos los documentos subidos.", elements=[pdf_element]).send()
+    else:
+        await cl.Message("Error al generar el PDF de los documentos.").send()
+
+
+# --- HANDLERS DE CHAINLIT ---
 
 @cl.on_chat_start
 async def on_chat_start():
-    # 1. Autenticación JWT
-    if not await auth.check_jwt_login():
-        return  # Detiene la ejecución si el login falla
+    cl.user_session.set("headers", cl.context.session.http_request.headers)
+    if not await check_login():
+        return
 
     user = cl.user_session.get("user")
 
-    # 2. Selección de proveedor de IA
     providers = config.PROVIDERS
-    if not providers:
-        await cl.Message(content="Error: No hay proveedores de IA configurados. Contacte al administrador.").send()
-        return
-
-    actions = [cl.Action(name=p['name'], value=p['name'], label=p['name']) for p in providers]
-
-    try:
-        res = await cl.AskActionMessage(
-            content="Por favor, selecciona el modelo de IA para esta sesión.",
-            actions=actions,
-            timeout=60 # Tiempo de espera para la selección
-        ).send()
-
-        if res:
-            selected_provider_name = res.get("value")
-            selected_provider = next((p for p in providers if p['name'] == selected_provider_name), None)
-
-            if selected_provider:
-                cl.user_session.set("selected_ia", selected_provider)
-                await cl.Message(content=f"Has seleccionado **{selected_provider['name']}**. ¡Comencemos!").send()
-            else:
-                await cl.Message(content="Error: Selección inválida. Usando proveedor por defecto.").send()
-                cl.user_session.set("selected_ia", providers[0])
-    except TimeoutError:
-        await cl.Message(content="No has seleccionado un proveedor. Usando el predeterminado.").send()
+    if len(providers) == 1:
         cl.user_session.set("selected_ia", providers[0])
+    else:
+        actions = [cl.Action(name=p['name'], value=p['name'], label=p['name']) for p in providers]
+        try:
+            res = await cl.AskActionMessage(content="Selecciona el modelo de IA:", actions=actions, timeout=120).send()
+            selected_provider = next((p for p in providers if p['name'] == res.get("value")), providers[0])
+            cl.user_session.set("selected_ia", selected_provider)
+        except TimeoutError:
+            cl.user_session.set("selected_ia", providers[0])
+            await cl.Message(content="Selección por defecto aplicada.").send()
 
+    selected_ia_name = cl.user_session.get("selected_ia")['name']
+    await cl.Message(content=f"Bienvenido, {user['username']}.\n\nUsando **{selected_ia_name}**. ¿En qué puedo ayudarte?", author="JustiBot").send()
 
-    # 3. Mensaje de bienvenida y panel de administrador
-    await cl.Message(
-        content=f"Bienvenido de nuevo, {user['username']} a **{config.APP_NAME}**.",
-        author="JustiBot"
-    ).send()
+    await cl.Message(content=legal.get_footer_js(), disable_feedback=True, author="System").send()
 
     if user.get('is_admin'):
         cl.user_session.set("is_admin", True)
-        await cl.Message(
-            content="**Modo Administrador activado.**\nPuedes usar comandos especiales como `/admin_users`.",
-            author="System"
-        ).send()
-
-    # Mostrar contexto legal inicial
-    await cl.Message(content=get_initial_legal_html(), author="Contexto Legal", disable_feedback=True).send()
+        await cl.Message(content="**Modo Administrador activado.**\nPuedes usar `/admin_users`.", author="System").send()
 
 
 @cl.on_message
 async def on_message(msg: cl.Message):
     user = cl.user_session.get("user")
-    user_id = user['id']
-    session_id = cl.user_session.id
+    if not user:
+        await cl.Message(content="Error de sesión. Recarga la página.").send()
+        return
 
-    # Guardar mensaje del usuario en la BD
+    user_id, session_id = user['id'], cl.user_session.id
+    text_content = msg.content.strip().lower()
+
     db.save_chat_message(user_id, session_id, msg.content, is_user_message=True)
 
-    # --- Manejo de Comandos de Administrador ---
-    if msg.content.strip() == "/admin_users" and cl.user_session.get("is_admin"):
+    if text_content == "/admin_users" and cl.user_session.get("is_admin"):
         users = db.get_all_users()
-        if not users:
-            await cl.Message(content="No se encontraron usuarios.").send()
-            return
-
-        table_header = "| ID | Username | Email | Is Admin |"
-        table_divider = "|----|----------|-------|----------|"
         table_rows = [f"| {u['id']} | {u['username']} | {u['email']} | {u['is_admin']} |" for u in users]
-
-        markdown_table = "\n".join([table_header, table_divider] + table_rows)
-        await cl.Message(content=f"**Lista de Usuarios Registrados:**\n\n{markdown_table}").send()
+        markdown_table = "\n".join(["| ID | Username | Email | Is Admin |", "|----|----------|-------|----------|"] + table_rows)
+        await cl.Message(content=f"**Usuarios Registrados:**\n\n{markdown_table}").send()
         return
 
-    # --- Manejo de Subida de Archivos ---
     if msg.elements:
-        documentos_subidos = cl.user_session.get("documentos_subidos", [])
-        for element in msg.elements:
-            if "image" in element.mime:
+        docs = cl.user_session.get("documentos_subidos", [])
+        for el in msg.elements:
+            if "image" in el.mime:
+                await cl.Message(content=f"Procesando `{el.name}`...").send()
                 try:
-                    await cl.Message(content=f"Procesando imagen: `{element.name}`...").send()
-                    bytes_imagen = await cl.make_async(element.content)
-
-                    # Llamada a la función de OCR avanzada
-                    info_doc = await cl.make_async(ocr_utils.procesar_documento)(
-                        image_bytes=bytes_imagen,
-                        user_session_id=str(user_id)
-                    )
-
-                    documentos_subidos.append(info_doc)
-                    cl.user_session.set("documentos_subidos", documentos_subidos)
-
-                    await cl.Message(
-                        content=f"✅ Documento `{info_doc['nombre_archivo']}` procesado y añadido a la sesión.\n"
-                                f"**Texto extraído:**\n> {info_doc['texto_ocr'][:200]}..."
-                    ).send()
-
+                    info = await cl.make_async(ocr_utils.procesar_documento)(await cl.make_async(el.content), str(user_id))
+                    docs.append(info)
+                    await cl.Message(content=f"✅ `{info['nombre_archivo']}` procesado.\n**Texto:**\n> {info['texto_ocr'][:200]}...").send()
                 except Exception as e:
-                    await cl.Message(content=f"Error al procesar el documento `{element.name}`: {e}").send()
-        # Si hay texto junto con la imagen, no lo procesamos con el LLM todavía,
-        # solo confirmamos la subida. El usuario puede luego hacer una pregunta sobre los docs.
-        # Si solo se suben imágenes sin texto, retornamos para evitar llamar al LLM con un input vacío.
-        if not msg.content:
-            return
+                    await cl.Message(content=f"Error al procesar `{el.name}`: {e}").send()
+        cl.user_session.set("documentos_subidos", docs)
+        if not text_content: return
 
-
-    # --- Lógica para generar el PDF ---
-    if "genera el contrato" in msg.content.lower() or "ya está" in msg.content.lower():
-        generating_msg = cl.Message(content="Generando el borrador del contrato en PDF...", author="JustiBot")
-        await generating_msg.send()
-
-        pdf_path = await generar_pdf_documentos()
-
-        if pdf_path:
-            pdf_element = cl.File(
-                name=os.path.basename(pdf_path),
-                path=pdf_path,
-                display="inline",
-                content=open(pdf_path, "rb").read()
-            )
-            await cl.Message(
-                content="Aquí tienes el borrador del contrato. Por favor, revísalo detenidamente.",
-                elements=[pdf_element],
-                author="JustiBot"
-            ).send()
-        else:
-            await cl.Message(content="Lo siento, ha ocurrido un error al generar el PDF.", author="JustiBot").send()
+    if "generar contrato" in text_content:
+        await generar_contrato_flow()
         return
 
+    if "procesar documentos" in text_content or "ya está" in text_content:
+        await generar_pdf_documentos()
+        return
 
-    # --- Lógica de LLM ---
     provider = cl.user_session.get("selected_ia")
-    if not provider:
-        await cl.Message(content="Error: No se ha seleccionado un proveedor de IA. Por favor, reinicia el chat.").send()
-        return
-
-    llm = Ollama(
-        base_url=provider['url'],
-        model=config.OLLAMA_MODEL,
-        temperature=config.TEMPERATURE,
-        # Se pueden añadir headers si la API requiere autenticación, por ejemplo:
-        # headers={"Authorization": f"Bearer {provider['key']}"}
-    )
-
-    # Preparar el contexto para el prompt
-    chat_history = get_session_chat_history(user_id, session_id)
-    documentos_ocr = get_ocr_text_from_session()
-    legal_context = get_legal_context_for_contract()
-
+    llm = Ollama(base_url=provider['url'], model=config.OLLAMA_MODEL, temperature=config.TEMPERATURE)
     chain = prompt | llm | StrOutputParser()
 
     message_to_llm = cl.Message(content="", author="JustiBot")
     async for chunk in chain.astream({
-        "legal_context": legal_context,
-        "chat_history": chat_history,
-        "documentos_ocr": documentos_ocr,
+        "chat_history": get_session_chat_history(user_id, session_id),
+        "documentos_ocr": get_ocr_text_from_session(),
         "input": msg.content
     }):
         await message_to_llm.stream_token(chunk)
 
     await message_to_llm.send()
-    # Guardar respuesta del LLM en la BD
     db.save_chat_message(user_id, session_id, message_to_llm.content, is_user_message=False)

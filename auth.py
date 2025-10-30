@@ -1,108 +1,55 @@
 # ./auth.py
-
 import chainlit as cl
-from passlib.context import CryptContext
-import db
 import jwt
-from datetime import datetime, timedelta
-from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
-
-# Contexto para el hashing de contraseñas
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def verify_password(plain_password, hashed_password):
-    """Verifica una contraseña plana contra su hash."""
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    """Crea un token de acceso JWT."""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
+import config
+import db
 
 async def check_jwt_login():
     """
-    Gestiona el flujo de login. Pide un token, lo valida, y si no es válido,
-    pide credenciales de usuario y contraseña para generar uno nuevo.
+    Verifica si hay un token JWT en los headers de la sesión, lo valida
+    y establece el usuario en la sesión de Chainlit si es válido.
     """
-    # Intentar obtener el token de la sesión del usuario
-    token = cl.user_session.get("auth_token")
+    session = cl.user_session
+    headers = session.get("headers")
 
-    if token:
-        try:
-            # Decodificar el token para validar la firma y la expiración
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            user_id = payload.get("sub")
-            user = db.get_user_by_id(user_id)
-            if user:
-                cl.user_session.set("user", user)
-                # Opcional: Refrescar el token si está cerca de expirar
-                return True
-            else:
-                # El usuario del token ya no existe
-                cl.user_session.set("auth_token", None)
-        except jwt.ExpiredSignatureError:
-            await cl.Message(content="Tu sesión ha expirado. Por favor, inicia sesión de nuevo.").send()
-            cl.user_session.set("auth_token", None)
-        except jwt.InvalidTokenError:
-            await cl.Message(content="Token inválido. Por favor, inicia sesión de nuevo.").send()
-            cl.user_session.set("auth_token", None)
+    if not headers or "Authorization" not in headers:
+        return False
 
-    # Si no hay token o el token es inválido, pedir login
-    return await ask_login()
+    auth_header = headers["Authorization"]
+    parts = auth_header.split()
 
-async def ask_login():
-    """Pide al usuario su nombre de usuario y contraseña."""
-    res = await cl.AskUserMessage(
-        content="¡Bienvenido a Hogar Feliz Chatbot! Por favor, inicia sesión para continuar.",
-        timeout=300
-    ).send()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return False
 
-    if res:
-        username = res['output']
+    token = parts[1]
 
-        res_pass = await cl.AskUserMessage(
-            content=f"Hola, {username}. Por favor, introduce tu contraseña.",
-            timeout=300,
-            # 'password' en metadata oculta la entrada
-            metadata={'type': 'password'}
-        ).send()
+    try:
+        if not config.JWT_PUBLIC_KEY:
+            return False
 
-        if res_pass:
-            password = res_pass['output']
+        public_key = f"-----BEGIN PUBLIC KEY-----\\n{config.JWT_PUBLIC_KEY}\\n-----END PUBLIC KEY-----"
 
-            # Autenticar al usuario
-            user = db.get_user_by_username(username)
-            if user and verify_password(password, user['password_hash']):
-                # Generar un nuevo token
-                access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-                access_token = create_access_token(
-                    data={"sub": str(user['id'])}, expires_delta=access_token_expires
-                )
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=[config.ALGORITHM]
+        )
 
-                # Guardar token y datos de usuario en la sesión
-                cl.user_session.set("auth_token", access_token)
+        username = payload.get("preferred_username", "sso_user")
+        email = payload.get("email", f"{username}@sso.hogarfamiliar")
+        is_admin = "admin" in payload.get("realm_access", {}).get("roles", [])
 
-                # Guardamos una versión segura de los datos del usuario, sin el hash de la pass
-                user_info = {
-                    "id": user["id"],
-                    "username": user["username"],
-                    "email": user["email"],
-                    "is_admin": user["is_admin"]
-                }
-                cl.user_session.set("user", user_info)
+        user = db.get_or_create_user(username, email, is_admin)
+        if not user:
+            return False
 
-                await cl.Message(content="¡Inicio de sesión exitoso!").send()
-                return True
-            else:
-                await cl.Message(content="Nombre de usuario o contraseña incorrectos.").send()
-                return False
+        cl.user_session.set("user", user)
+        return True
 
-    # Si el usuario no introduce nada o cierra el prompt
-    await cl.Message(content="Proceso de inicio de sesión cancelado.").send()
-    return False
+    except (ExpiredSignatureError, InvalidTokenError) as e:
+        print(f"Error de validación JWT: {e}")
+        return False
+    except Exception as e:
+        print(f"Error inesperado en validación JWT: {e}")
+        return False
