@@ -1,101 +1,94 @@
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import cm
-from PIL import Image
+# ./pdf_utils.py
+
 import os
-import logging
-import json
-from jinja2 import Environment, FileSystemLoader
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
+from config import PDF_DIR
+import time
+from PIL import Image as PILImage
+import io
 
-# Configuración del logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def generar_contrato_pdf(datos: dict, plantilla: str, output_path: str):
+def crear_pdf_contrato(username, chat_history, image_paths):
     """
-    Genera un contrato en PDF a partir de una plantilla de texto y un diccionario de datos.
+    Crea un documento PDF con el historial del chat y las imágenes de los documentos.
 
     Args:
-        datos (dict): Diccionario con los datos para rellenar la plantilla.
-        plantilla (str): La ruta al archivo de plantilla (.txt).
-        output_path (str): Ruta donde se guardará el PDF resultante.
+        username (str): Nombre del usuario para el título.
+        chat_history (str): El historial de la conversación formateado.
+        image_paths (list): Lista de rutas a las imágenes procesadas para adjuntar.
+
+    Returns:
+        str: La ruta al archivo PDF generado.
     """
-    try:
-        # Configurar Jinja2 para leer la plantilla
-        env = Environment(loader=FileSystemLoader(os.path.dirname(plantilla)))
-        template = env.get_template(os.path.basename(plantilla))
+    timestamp = int(time.time())
+    pdf_path = os.path.join(PDF_DIR, f"borrador_contrato_{username}_{timestamp}.pdf")
 
-        # Renderizar la plantilla con los datos
-        contenido = template.render(datos)
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = []
 
-        # Crear el PDF
-        c = canvas.Canvas(output_path, pagesize=letter)
-        width, height = letter
+    # Título
+    title = f"Borrador de Contrato - Agente: {username}"
+    story.append(Paragraph(title, styles['h1']))
+    story.append(Spacer(1, 0.2 * inch))
 
-        text = c.beginText(1.5 * cm, height - 2 * cm)
-        text.setFont("Helvetica", 10)
-        text.setLeading(14)
+    # Sección de Conversación
+    story.append(Paragraph("Historial de la Conversación", styles['h2']))
+    # Reemplazar saltos de línea para que se muestren correctamente en el PDF
+    formatted_history = chat_history.replace('\n', '<br/>\n')
+    story.append(Paragraph(formatted_history, styles['BodyText']))
+    story.append(Spacer(1, 0.2 * inch))
 
-        for line in contenido.split('\\n'):
-            text.textLine(line)
+    # Sección de Documentos Adjuntos
+    if image_paths:
+        story.append(Paragraph("Documentos Adjuntos (Imágenes Procesadas)", styles['h2']))
 
-        c.drawText(text)
-        c.save()
-        logger.info(f"Contrato PDF generado exitosamente en: {output_path}")
-        return output_path
-
-    except Exception as e:
-        logger.error(f"Error al generar el contrato PDF: {e}")
-        return None
-
-def unir_imagenes_a_pdf(image_paths: list, output_pdf_path: str):
-    """
-    Toma una lista de rutas de imágenes y las une en un único archivo PDF.
-    Cada imagen se colocará en una página separada, ajustada al tamaño de la página.
-
-    Args:
-        image_paths (list): Lista de rutas a los archivos de imagen.
-        output_pdf_path (str): Ruta donde se guardará el PDF resultante.
-    """
-    if not image_paths:
-        logger.warning("No se proporcionaron imágenes para unir en el PDF.")
-        return
-
-    try:
-        c = canvas.Canvas(output_pdf_path, pagesize=letter)
-        width, height = letter
-
-        for i, image_path in enumerate(image_paths):
+        for img_path in image_paths:
             try:
-                with Image.open(image_path) as img:
-                    img_width, img_height = img.size
+                # Comprobar si el archivo existe
+                if not os.path.exists(img_path):
+                    print(f"Advertencia: No se encontró la imagen en {img_path}")
+                    story.append(Paragraph(f"Error: No se pudo cargar la imagen {os.path.basename(img_path)}", styles['BodyText']))
+                    continue
 
-                    aspect = img_height / float(img_width)
+                # Añadir nombre de archivo
+                story.append(Paragraph(f"<i>{os.path.basename(img_path)}</i>", styles['Italic']))
+                story.append(Spacer(1, 0.1 * inch))
 
-                    new_width = width * 0.8 # Dejar márgenes
-                    new_height = new_width * aspect
+                # Redimensionar la imagen para que quepa en la página
+                # Ancho máximo de 6 pulgadas (aproximadamente el ancho del área de texto)
+                max_width = 6 * inch
+                max_height = 8 * inch # Altura máxima para evitar que ocupe toda la página
 
-                    if new_height > height * 0.9:
-                        new_height = height * 0.9
-                        new_width = new_height / aspect
+                # Usar Pillow para abrir la imagen y obtener sus dimensiones sin cargarla completamente en memoria de reportlab de inmediato
+                with PILImage.open(img_path) as p_img:
+                    original_width, original_height = p_img.size
 
-                    x_centered = (width - new_width) / 2
-                    y_centered = (height - new_height) / 2
+                aspect_ratio = original_height / float(original_width)
 
-                    c.drawImage(image_path, x_centered, y_centered, width=new_width, height=new_height, preserveAspectRatio=True)
+                display_width = max_width
+                display_height = display_width * aspect_ratio
 
-                    if i < len(image_paths) - 1:
-                        c.showPage()
+                if display_height > max_height:
+                    display_height = max_height
+                    display_width = display_height / aspect_ratio
+
+                # Crear el objeto Image de reportlab
+                img = Image(img_path, width=display_width, height=display_height)
+                story.append(img)
+                story.append(Spacer(1, 0.2 * inch))
 
             except Exception as e:
-                logger.error(f"No se pudo procesar la imagen {image_path}: {e}")
-                c.drawString(100, height / 2, f"Error al cargar la imagen: {os.path.basename(image_path)}")
-                if i < len(image_paths) - 1:
-                    c.showPage()
+                print(f"Error al procesar la imagen {img_path} para el PDF: {e}")
+                story.append(Paragraph(f"Error al cargar la imagen: {os.path.basename(img_path)}", styles['BodyText']))
 
-        c.save()
-        logger.info(f"PDF de imágenes generado exitosamente en: {output_pdf_path}")
-
+    # Construir el PDF
+    try:
+        doc.build(story)
+        return pdf_path
     except Exception as e:
-        logger.error(f"Error al crear el PDF de imágenes: {e}")
-        raise
+        print(f"Error al construir el PDF: {e}")
+        return None
