@@ -1,178 +1,157 @@
+# ./ocr_utils.py
+
 import cv2
 import numpy as np
 import pytesseract
-from pytesseract import Output
-import logging
+import config
 import os
-from datetime import datetime
+import time
+from PIL import Image
 
-# Configuración del logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def rotar_imagen(image_path: str):
+def rotar_imagen(image: np.ndarray) -> np.ndarray:
     """
-    Detecta la orientación de una imagen y la rota para que el texto esté vertical.
-
+    Detecta y corrige la orientación de una imagen usando Tesseract OSD.
     Args:
-        image_path: Ruta a la imagen.
-
+        image: Una imagen en formato NumPy array (leída con OpenCV).
     Returns:
-        La imagen rotada como un objeto de OpenCV.
+        La imagen rotada en formato NumPy array.
     """
     try:
-        img = cv2.imread(image_path)
-        if img is None:
-            logger.error(f"No se pudo cargar la imagen desde: {image_path}")
-            return None
+        # Usar Tesseract para detectar la orientación (OSD - Orientation and Script Detection)
+        osd = pytesseract.image_to_osd(image, output_type=pytesseract.Output.DICT)
+        angulo = osd.get('rotate', 0)
 
-        # Usar pytesseract para detectar la orientación y el script (OSD)
-        osd = pytesseract.image_to_osd(img, output_type=Output.DICT)
-
-        angle = osd.get('rotate', 0)
-        logger.info(f"Ángulo de rotación detectado: {angle} grados para {os.path.basename(image_path)}")
-
-        if angle != 0:
-            # Rotar la imagen para corregir la orientación
-            (h, w) = img.shape[:2]
-            center = (w // 2, h // 2)
-            M = cv2.getRotationMatrix2D(center, -angle, 1.0)
-            rotated = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-            return rotated
-
-        return img
-
+        # Rotar la imagen para corregir la orientación
+        if angulo != 0:
+            (h, w) = image.shape[:2]
+            centro = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(centro, -angulo, 1.0)
+            # Ajustar el tamaño de la imagen para que quepa todo el contenido rotado
+            cos = np.abs(M[0, 0])
+            sin = np.abs(M[0, 1])
+            nuevo_w = int((h * sin) + (w * cos))
+            nuevo_h = int((h * cos) + (w * sin))
+            M[0, 2] += (nuevo_w / 2) - centro[0]
+            M[1, 2] += (nuevo_h / 2) - centro[1]
+            imagen_rotada = cv2.warpAffine(image, M, (nuevo_w, nuevo_h), borderValue=(255, 255, 255))
+            return imagen_rotada
+        return image
     except Exception as e:
-        logger.error(f"Error al rotar la imagen {image_path}: {e}")
-        return cv2.imread(image_path) # Devolver la original en caso de error
+        print(f"Error durante la rotación de la imagen: {e}")
+        return image # Devuelve la imagen original en caso de error
 
-def recortar_a4(image: np.ndarray):
+def recortar_a4(image: np.ndarray) -> np.ndarray:
     """
-    Intenta detectar el contorno de un documento A4 en una imagen y lo recorta.
-
+    Detecta el contorno más grande (asumido como una hoja A4 o DNI)
+    y aplica una transformación de perspectiva para obtener una vista cenital.
     Args:
-        image: La imagen como un objeto de OpenCV.
-
+        image: Imagen en formato NumPy array (rotada).
     Returns:
-        La imagen recortada y con corrección de perspectiva.
+        Imagen recortada y transformada, o la original si no se encuentra un contorno adecuado.
     """
     try:
-        # Convertir a escala de grises y aplicar desenfoque
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        # Convertir a escala de grises
+        gris = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Aplicar un desenfoque para reducir el ruido
+        gris = cv2.GaussianBlur(gris, (5, 5), 0)
+        # Detección de bordes con Canny
+        bordes = cv2.Canny(gris, 75, 200)
 
-        # Detección de bordes
-        edged = cv2.Canny(blurred, 75, 200)
+        # Encontrar contornos
+        contornos, _ = cv2.findContours(bordes, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        # Ordenar contornos por área de mayor a menor
+        contornos = sorted(contornos, key=cv2.contourArea, reverse=True)[:5]
 
-        # Encontrar los contornos
-        contours, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
-
-        # Buscar un contorno con 4 puntos (un rectángulo)
-        for c in contours:
+        # Iterar sobre los contornos para encontrar el que parece un documento
+        for c in contornos:
             peri = cv2.arcLength(c, True)
             approx = cv2.approxPolyDP(c, 0.02 * peri, True)
 
+            # Si el contorno aproximado tiene 4 puntos, asumimos que es nuestro documento
             if len(approx) == 4:
                 screenCnt = approx
+                break
+        else:
+            # Si no se encuentra un contorno de 4 puntos, devolver la imagen original
+            print("Advertencia: No se encontró un contorno de 4 puntos. Se devuelve la imagen original.")
+            return image
 
-                # Aplicar transformación de perspectiva
-                rect = np.zeros((4, 2), dtype="float32")
-                s = screenCnt.sum(axis=2)
-                rect[0] = screenCnt[np.argmin(s)]
-                rect[2] = screenCnt[np.argmax(s)]
+        # Aplicar la transformación de perspectiva
+        pts = screenCnt.reshape(4, 2)
+        rect = np.zeros((4, 2), dtype="float32")
 
-                diff = np.diff(screenCnt, axis=2)
-                rect[1] = screenCnt[np.argmin(diff)]
-                rect[3] = screenCnt[np.argmax(diff)]
+        # El orden de los puntos en rect es: top-left, top-right, bottom-right, bottom-left
+        s = pts.sum(axis=1)
+        rect[0] = pts[np.argmin(s)]
+        rect[2] = pts[np.argmax(s)]
 
-                (tl, tr, br, bl) = rect
+        diff = np.diff(pts, axis=1)
+        rect[1] = pts[np.argmin(diff)]
+        rect[3] = pts[np.argmax(diff)]
 
-                # Calcular el ancho y alto del nuevo A4
-                widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
-                widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
-                maxWidth = max(int(widthA), int(widthB))
+        (tl, tr, br, bl) = rect
 
-                heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-                heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
-                maxHeight = max(int(heightA), int(heightB))
+        # Calcular el ancho de la nueva imagen
+        widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+        widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+        maxWidth = max(int(widthA), int(widthB))
 
-                dst = np.array([
-                    [0, 0],
-                    [maxWidth - 1, 0],
-                    [maxWidth - 1, maxHeight - 1],
-                    [0, maxHeight - 1]], dtype="float32")
+        # Calcular la altura de la nueva imagen
+        heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+        heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+        maxHeight = max(int(heightA), int(heightB))
 
-                M = cv2.getPerspectiveTransform(rect, dst)
-                warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
-                logger.info("Recorte A4 y corrección de perspectiva aplicados.")
-                return warped
+        # Construir el conjunto de puntos de destino para obtener la vista "aérea"
+        dst = np.array([
+            [0, 0],
+            [maxWidth - 1, 0],
+            [maxWidth - 1, maxHeight - 1],
+            [0, maxHeight - 1]], dtype="float32")
 
-        logger.warning("No se encontró un contorno de 4 puntos. Devolviendo imagen original.")
-        return image
+        # Calcular la matriz de transformación de perspectiva y aplicarla
+        M = cv2.getPerspectiveTransform(rect, dst)
+        warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+
+        return warped
     except Exception as e:
-        logger.error(f"Error durante el recorte A4: {e}")
-        return image
+        print(f"Error durante el recorte de la imagen: {e}")
+        return image # Devuelve la imagen original en caso de error
 
-def procesar_dni(image_path: str, lado: str, uploads_dir: str):
+def procesar_documento(image_bytes: bytes, user_session_id: str) -> dict:
     """
-    Procesa una imagen de DNI: la rota, la recorta y genera un nombre de archivo estandarizado.
-
+    Orquesta el pipeline completo de procesamiento de un documento:
+    rotación, recorte, OCR, y guardado.
     Args:
-        image_path: Ruta a la imagen original.
-        lado: 'anverso' o 'reverso'.
-        uploads_dir: Directorio donde guardar la imagen procesada.
-
+        image_bytes: Los bytes de la imagen subida.
+        user_session_id: El ID de la sesión del usuario para nombrar el archivo.
     Returns:
-        La ruta a la imagen procesada o None si hay error.
+        Un diccionario con la ruta de la imagen guardada, el texto OCR y el nombre del archivo.
     """
-    try:
-        # 1. Rotar la imagen
-        imagen_rotada = rotar_imagen(image_path)
-        if imagen_rotada is None:
-            return None
+    # 1. Cargar la imagen desde bytes a un formato de OpenCV
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        # 2. Recortar (podría ser una función específica para DNI si es necesario)
-        # Por ahora, usamos el recorte genérico A4, que podría no ser ideal para DNI.
-        imagen_recortada = recortar_a4(imagen_rotada)
+    # 2. Rotar la imagen para corregir la orientación
+    img_rotada = rotar_imagen(img_cv)
 
-        # 3. Extraer fecha de caducidad para el nombre del archivo (si es anverso)
-        fecha_caducidad = "_fecha_desconocida"
-        if lado == "anverso":
-            try:
-                # Intentar leer la fecha (esto es muy propenso a errores)
-                texto = pytesseract.image_to_string(imagen_recortada, lang='spa')
-                # (Lógica para encontrar una fecha con formato XX.XX.XXXX)
-                # ...
-                # Si se encuentra, fecha_caducidad = "YYYYMMDD"
-                pass # Implementación pendiente
-            except Exception:
-                logger.warning("No se pudo extraer la fecha de caducidad del DNI.")
+    # 3. Recortar la imagen para obtener una vista de "escáner"
+    img_procesada = recortar_a4(img_rotada)
 
-        # 4. Generar el nuevo nombre de archivo
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        nuevo_nombre = f"DNI_{lado}{fecha_caducidad}_{timestamp}.jpg"
-        nueva_ruta = os.path.join(uploads_dir, nuevo_nombre)
+    # 4. Extraer texto usando Tesseract OCR de la imagen final
+    # Convertir de OpenCV (BGR) a PIL (RGB) que es lo que espera Tesseract
+    img_pil = Image.fromarray(cv2.cvtColor(img_procesada, cv2.COLOR_BGR2RGB))
+    texto_ocr = pytesseract.image_to_string(img_pil, lang='spa') # 'spa' para español
 
-        # 5. Guardar la imagen procesada
-        cv2.imwrite(nueva_ruta, imagen_recortada)
-        logger.info(f"DNI procesado y guardado en: {nueva_ruta}")
+    # 5. Generar un nombre de archivo único y guardarla
+    timestamp = int(time.time())
+    nombre_archivo = f"doc_{user_session_id}_{timestamp}.jpg"
+    ruta_guardada = os.path.join(config.DOCS_DIR, nombre_archivo)
 
-        return nueva_ruta
+    # Guardar la imagen procesada (la recortada y rotada)
+    cv2.imwrite(ruta_guardada, img_procesada)
 
-    except Exception as e:
-        logger.error(f"Error al procesar el DNI {image_path}: {e}")
-        return None
-
-if __name__ == '__main__':
-    # Ejemplo de uso (requiere una imagen de prueba)
-    # test_image_path = "ruta/a/tu/imagen_dni.jpg"
-    # uploads_folder = "uploads"
-    # if not os.path.exists(uploads_folder):
-    #     os.makedirs(uploads_folder)
-    #
-    # if os.path.exists(test_image_path):
-    #    procesar_dni(test_image_path, "anverso", uploads_folder)
-    # else:
-    #    logger.warning("El archivo de imagen de prueba no existe.")
-    pass
+    return {
+        'ruta_guardada': ruta_guardada,
+        'texto_ocr': texto_ocr,
+        'nombre_archivo': nombre_archivo
+    }

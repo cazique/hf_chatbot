@@ -1,57 +1,108 @@
-import jwt
-import logging
-import config
+# ./auth.py
+
+import chainlit as cl
+from passlib.context import CryptContext
 import db
+import jwt
+from datetime import datetime, timedelta
+from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
-# Configuración del logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Contexto para el hashing de contraseñas
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def get_user_from_token(token: str):
+def verify_password(plain_password, hashed_password):
+    """Verifica una contraseña plana contra su hash."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    """Crea un token de acceso JWT."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def check_jwt_login():
     """
-    Valida un token JWT, y si es válido, obtiene o crea el usuario correspondiente.
-
-    Args:
-        token: El token JWT a validar.
-
-    Returns:
-        Un diccionario con los datos del usuario si el token es válido, de lo contrario None.
+    Gestiona el flujo de login. Pide un token, lo valida, y si no es válido,
+    pide credenciales de usuario y contraseña para generar uno nuevo.
     """
-    if not token:
-        logger.warning("Se intentó validar un token vacío.")
-        return None
+    # Intentar obtener el token de la sesión del usuario
+    token = cl.user_session.get("auth_token")
 
-    try:
-        # Decodificar el token usando la clave pública y el algoritmo de la configuración
-        decoded_token = jwt.decode(
-            token,
-            config.JWT_PUBLIC_KEY,
-            algorithms=[config.JWT_ALGORITHM]
-        )
+    if token:
+        try:
+            # Decodificar el token para validar la firma y la expiración
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("sub")
+            user = db.get_user_by_id(user_id)
+            if user:
+                cl.user_session.set("user", user)
+                # Opcional: Refrescar el token si está cerca de expirar
+                return True
+            else:
+                # El usuario del token ya no existe
+                cl.user_session.set("auth_token", None)
+        except jwt.ExpiredSignatureError:
+            await cl.Message(content="Tu sesión ha expirado. Por favor, inicia sesión de nuevo.").send()
+            cl.user_session.set("auth_token", None)
+        except jwt.InvalidTokenError:
+            await cl.Message(content="Token inválido. Por favor, inicia sesión de nuevo.").send()
+            cl.user_session.set("auth_token", None)
 
-        username = decoded_token.get("username")
-        email = decoded_token.get("email")
+    # Si no hay token o el token es inválido, pedir login
+    return await ask_login()
 
-        if not username or not email:
-            logger.error(f"Token inválido: faltan 'username' o 'email'. Payload: {decoded_token}")
-            return None
+async def ask_login():
+    """Pide al usuario su nombre de usuario y contraseña."""
+    res = await cl.AskUserMessage(
+        content="¡Bienvenido a Hogar Feliz Chatbot! Por favor, inicia sesión para continuar.",
+        timeout=300
+    ).send()
 
-        # Con el email y username, obtenemos o creamos el usuario en nuestra DB
-        user = db.get_or_create_user(username=username, email=email)
+    if res:
+        username = res['output']
 
-        if not user:
-            logger.error(f"No se pudo obtener o crear el usuario: {username} ({email})")
-            return None
+        res_pass = await cl.AskUserMessage(
+            content=f"Hola, {username}. Por favor, introduce tu contraseña.",
+            timeout=300,
+            # 'password' en metadata oculta la entrada
+            metadata={'type': 'password'}
+        ).send()
 
-        logger.info(f"Token validado correctamente para el usuario: {user['username']}")
-        return user
+        if res_pass:
+            password = res_pass['output']
 
-    except jwt.ExpiredSignatureError:
-        logger.warning("El token ha expirado.")
-        return None
-    except jwt.InvalidTokenError as e:
-        logger.error(f"Error al decodificar el token JWT: {e}")
-        return None
-    except Exception as e:
-        logger.critical(f"Error inesperado durante la validación del token: {e}")
-        return None
+            # Autenticar al usuario
+            user = db.get_user_by_username(username)
+            if user and verify_password(password, user['password_hash']):
+                # Generar un nuevo token
+                access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+                access_token = create_access_token(
+                    data={"sub": str(user['id'])}, expires_delta=access_token_expires
+                )
+
+                # Guardar token y datos de usuario en la sesión
+                cl.user_session.set("auth_token", access_token)
+
+                # Guardamos una versión segura de los datos del usuario, sin el hash de la pass
+                user_info = {
+                    "id": user["id"],
+                    "username": user["username"],
+                    "email": user["email"],
+                    "is_admin": user["is_admin"]
+                }
+                cl.user_session.set("user", user_info)
+
+                await cl.Message(content="¡Inicio de sesión exitoso!").send()
+                return True
+            else:
+                await cl.Message(content="Nombre de usuario o contraseña incorrectos.").send()
+                return False
+
+    # Si el usuario no introduce nada o cierra el prompt
+    await cl.Message(content="Proceso de inicio de sesión cancelado.").send()
+    return False

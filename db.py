@@ -1,188 +1,141 @@
-import mysql.connector
-from mysql.connector import errorcode
-import config
-import logging
-from datetime import datetime
+# ./db.py
 
-# Configuración del logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import pymysql
+import hashlib
+from config import DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, DB_PORT
 
 def get_db_connection():
-    """Establece y devuelve una conexión con la base de datos."""
+    """Establece y devuelve una conexión a la base de datos."""
     try:
-        conn = mysql.connector.connect(
-            host=config.DB_HOST,
-            user=config.DB_USER,
-            password=config.DB_PASS,
-            database=config.DB_NAME
+        connection = pymysql.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            port=DB_PORT,
+            cursorclass=pymysql.cursors.DictCursor
         )
-        return conn
-    except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            logger.error("Error de acceso: verifica usuario y contraseña.")
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            logger.error(f"La base de datos '{config.DB_NAME}' no existe.")
-        else:
-            logger.error(f"Error al conectar con la base de datos: {err}")
+        return connection
+    except pymysql.Error as e:
+        print(f"Error al conectar a MariaDB: {e}")
         return None
 
-def init_db():
-    """Crea las tablas de la base de datos si no existen."""
-    conn = get_db_connection()
-    if not conn:
-        return
+def hash_password(password):
+    """Genera un hash seguro de la contraseña."""
+    return hashlib.sha256(password.encode()).hexdigest()
 
-    cursor = conn.cursor()
+def create_user_table():
+    """Crea la tabla de usuarios si no existe."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        username VARCHAR(50) UNIQUE NOT NULL,
+                        email VARCHAR(120) UNIQUE NOT NULL,
+                        password_hash VARCHAR(64) NOT NULL,
+                        is_admin BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+            connection.commit()
+        finally:
+            connection.close()
 
-    tables = {
-        "users": """
-            CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(255) UNIQUE NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                is_admin BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB;
-        """,
-        "contratos": """
-            CREATE TABLE IF NOT EXISTS contratos (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT,
-                fecha DATE,
-                pdf_path VARCHAR(255),
-                datos_json TEXT,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB;
-        """,
-        "chat_history": """
-            CREATE TABLE IF NOT EXISTS chat_history (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT,
-                role ENUM('user', 'assistant') NOT NULL,
-                content TEXT NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB;
-        """
-    }
+def create_chat_history_table():
+    """Crea la tabla de historial de chat si no existe."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS chat_history (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        session_id VARCHAR(255) NOT NULL,
+                        message TEXT NOT NULL,
+                        is_user_message BOOLEAN NOT NULL,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                    )
+                """)
+            connection.commit()
+        finally:
+            connection.close()
 
-    try:
-        for table_name, table_description in tables.items():
-            logger.info(f"Creando tabla '{table_name}'...")
-            cursor.execute(table_description)
-    except mysql.connector.Error as err:
-        logger.error(f"Error al crear las tablas: {err}")
-    finally:
-        cursor.close()
-        conn.close()
+def get_user_by_username(username):
+    """Busca un usuario por su nombre de usuario."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+                return cursor.fetchone()
+        finally:
+            connection.close()
+    return None
 
-def get_or_create_user(username, email):
-    """
-    Busca un usuario por su email. Si no existe, lo crea.
-    Devuelve el objeto de usuario (id, username, email, is_admin).
-    """
-    conn = get_db_connection()
-    if not conn:
-        return None
+def get_user_by_id(user_id):
+    """Busca un usuario por su ID."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT id, username, email, is_admin FROM users WHERE id = %s", (user_id,))
+                return cursor.fetchone()
+        finally:
+            connection.close()
+    return None
 
-    cursor = conn.cursor(dictionary=True)
+def get_all_users():
+    """Recupera todos los usuarios de la base de datos."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT id, username, email, is_admin FROM users")
+                return cursor.fetchall()
+        except pymysql.Error as e:
+            print(f"Error al obtener todos los usuarios: {e}")
+            return []
+        finally:
+            connection.close()
+    return []
 
-    try:
-        # Buscar usuario por email
-        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-        user = cursor.fetchone()
 
-        if user:
-            # Si el username ha cambiado, actualizarlo
-            if user['username'] != username:
-                cursor.execute("UPDATE users SET username = %s WHERE email = %s", (username, email))
-                conn.commit()
-                user['username'] = username
-            return user
+def save_chat_message(user_id, session_id, message, is_user_message):
+    """Guarda un mensaje de chat en la base de datos."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                sql = "INSERT INTO chat_history (user_id, session_id, message, is_user_message) VALUES (%s, %s, %s, %s)"
+                cursor.execute(sql, (user_id, session_id, message, is_user_message))
+            connection.commit()
+        finally:
+            connection.close()
 
-        # Si no existe, crearlo
-        cursor.execute(
-            "INSERT INTO users (username, email, is_admin) VALUES (%s, %s, %s)",
-            (username, email, False) # Por defecto, no es admin
-        )
-        conn.commit()
-
-        # Obtener el usuario recién creado
-        cursor.execute("SELECT * FROM users WHERE id = %s", (cursor.lastrowid,))
-        new_user = cursor.fetchone()
-        return new_user
-
-    except mysql.connector.Error as err:
-        logger.error(f"Error en la base de datos (get_or_create_user): {err}")
-        return None
-    finally:
-        cursor.close()
-        conn.close()
-
-def save_chat_message(user_id, role, content):
-    """Guarda un mensaje del chat en la base de datos."""
-    conn = get_db_connection()
-    if not conn:
-        return
-
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s)",
-            (user_id, role, content)
-        )
-        conn.commit()
-    except mysql.connector.Error as err:
-        logger.error(f"Error al guardar mensaje de chat: {err}")
-    finally:
-        cursor.close()
-        conn.close()
-
-def load_chat_history(user_id):
-    """Carga el historial de chat de un usuario desde la base de datos."""
-    conn = get_db_connection()
-    if not conn:
-        return []
-
-    cursor = conn.cursor(dictionary=True)
+def get_chat_history(user_id, session_id):
+    """Recupera el historial de chat para una sesión de usuario."""
+    connection = get_db_connection()
     history = []
-    try:
-        cursor.execute(
-            "SELECT role, content FROM chat_history WHERE user_id = %s ORDER BY timestamp ASC",
-            (user_id,)
-        )
-        for row in cursor.fetchall():
-            history.append({"role": row["role"], "content": row["content"]})
-        return history
-    except mysql.connector.Error as err:
-        logger.error(f"Error al cargar historial de chat: {err}")
-        return []
-    finally:
-        cursor.close()
-        conn.close()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                sql = "SELECT message, is_user_message FROM chat_history WHERE user_id = %s AND session_id = %s ORDER BY timestamp ASC"
+                cursor.execute(sql, (user_id, session_id))
+                result = cursor.fetchall()
+                for row in result:
+                    history.append((row['message'], row['is_user_message']))
+        finally:
+            connection.close()
+    return history
 
-def guardar_contrato(user_id, fecha, pdf_path, datos_json):
-    """Guarda los datos de un contrato en la base de datos."""
-    conn = get_db_connection()
-    if not conn:
-        return
-
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO contratos (user_id, fecha, pdf_path, datos_json) VALUES (%s, %s, %s, %s)",
-            (user_id, fecha, pdf_path, datos_json)
-        )
-        conn.commit()
-        logger.info(f"Contrato guardado para el usuario {user_id} en {pdf_path}")
-    except mysql.connector.Error as err:
-        logger.error(f"Error al guardar contrato: {err}")
-    finally:
-        cursor.close()
-        conn.close()
-
-if __name__ == '__main__':
-    logger.info("Inicializando la base de datos...")
-    init_db()
-    logger.info("Base de datos lista.")
+def initialize_database():
+    """Inicializa las tablas de la base de datos."""
+    create_user_table()
+    create_chat_history_table()
+    # Aquí se podría añadir un usuario administrador por defecto si no existe
+    # Por ejemplo, checkear si existe 'admin' y si no, crearlo.

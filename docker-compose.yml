@@ -1,66 +1,60 @@
 version: '3.8'
 
 services:
-  db:
-    image: mariadb:10.6
-    container_name: hf_chatbot_db
-    restart: always
-    env_file: .env
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASS}
-    volumes:
-      - mariadb_data:/var/lib/mysql
-    networks:
-      - chatbot_net
-    healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
-
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: hf_chatbot_app
-    restart: always
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./uploaded_docs:/app/uploaded_docs
+      - ./generated_pdfs:/app/generated_pdfs
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
-    env_file: .env
-    environment:
-      - DB_HOST=db
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
-      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
-      - JWT_ALGORITHM=${JWT_ALGORITHM}
-    volumes:
-      - ./uploads:/app/uploads
-    ports:
-      - "8000:8000"
     networks:
-      - chatbot_net
+      - chatbot_network
+
+  db:
+    image: mariadb:10.6
+    container_name: hf_chatbot_db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    ports:
+      - "3307:3306" # Exponer en 3307 para evitar conflictos con instalaciones locales
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MARIADB_USER}", "-p${MARIADB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chatbot_network
 
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: hf_chatbot_tunnel
-    restart: always
-    command: tunnel --no-autoupdate run hf_chatbot_tunnel
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       - app
     networks:
-      - chatbot_net
+      - chatbot_network
+
+networks:
+  chatbot_network:
+    driver: bridge
 
 volumes:
   mariadb_data:
-
-networks:
-  chatbot_net:
-    driver: bridge
