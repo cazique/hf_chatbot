@@ -1,0 +1,10 @@
+chainlit
+ollama
+passlib[bcrypt]
+mysql-connector-python
+PyJWT
+opencv-python
+pytesseract
+Jinja2
+reportlab
+Pillow
