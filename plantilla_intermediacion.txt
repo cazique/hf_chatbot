@@ -1,0 +1,65 @@
+CONTRATO DE INTERMEDIACIÓN INMOBILIARIA
+
+En {LUGAR}, a {FECHA}
+
+REUNIDOS
+
+De una parte, {LISTA_VENDEDORES} en adelante denominado EL/LOS PROPIETARIO/S.
+
+Y de otra parte, HOGAR FAMILIAR INMOBILIARIA, S.L., con domicilio social en Avda de Madrid n° 21 en San Fernando de Henares (Madrid), CIF nº B01755321, representada en este acto por D. {REPRESENTANTE_INMO}, en calidad de CEO, en adelante denominada LA INMOBILIARIA.
+
+Ambas partes, reconociéndose la capacidad legal necesaria para formalizar el presente contrato,
+
+EXPONEN
+
+1. Que EL/LOS PROPIETARIO/S {ES_SON} titular{ES} del inmueble sito en {DIRECCION_INMUEBLE}, {MUNICIPIO} ({PROVINCIA}).
+
+2. Que EL/LOS PROPIETARIO/S desea/n vender el citado inmueble, y para ello contrata los servicios de intermediación de LA INMOBILIARIA.
+
+3. Que LA INMOBILIARIA, en virtud de este contrato, se compromete a realizar gestiones de mediación e intermediación para buscar comprador para dicho inmueble.
+
+CLÁUSULAS
+
+Primera. Objeto del contrato
+El presente contrato tiene por objeto la prestación de servicios de intermediación por parte de LA INMOBILIARIA para la venta del inmueble propiedad de EL/LOS PROPIETARIO/S.
+
+Segunda. Precio de venta
+EL/LOS PROPIETARIO/S fija/n como precio de venta del inmueble la cantidad de {PRECIO_VENTA} euros (€), pudiendo ser modificado únicamente mediante acuerdo escrito entre ambas partes.
+
+Tercera. Honorarios de la inmobiliaria
+LA INMOBILIARIA percibirá como honorarios por su intermediación {HONORARIOS} euros (IVA no incluido, 21% aplicable), que serán abonados por EL/LOS PROPIETARIO/S en el momento del contrato de arras penitenciales o la firma de la escritura de compraventa. Los honorarios se devengarán por la mediación efectiva (puesta en contacto con comprador dispuesto), independientemente de la culminación final, salvo culpa imputable a LA INMOBILIARIA.
+
+Cuarta. Obligaciones de la inmobiliaria
+LA INMOBILIARIA se compromete a:
+a) Publicitar el inmueble a través de sus medios habituales (web, portales inmobiliarios, carteles, redes, etc.).
+b) Atender y gestionar visitas con potenciales compradores.
+c) Asesorar a EL/LOS PROPIETARIO/S en las gestiones necesarias para la compraventa, incluyendo verificación de certificado energético (CEE) actualizado conforme RD 390/2021.
+
+Quinta. Obligaciones del propietario
+EL/LOS PROPIETARIO/S se compromete/n a:
+a) Aportar la documentación necesaria del inmueble (escrituras, recibos de IBI, certificado energético CEE, etc.).
+b) Permitir las visitas al inmueble previa coordinación con LA INMOBILIARIA.
+c) Pagar los honorarios pactados en este contrato en caso de que la venta se formalice gracias a la intermediación de LA INMOBILIARIA.
+
+Sexta. Exclusividad
+Este contrato se celebra en régimen de {EXCLUSIVIDAD} (sí/no), por lo que EL/LOS PROPIETARIO/S no podrá/n encargar la venta del inmueble a otra agencia durante la vigencia del presente contrato.
+
+Séptima. Duración
+El presente contrato tendrá una duración de {DURACION_MES} meses a partir de la fecha de firma, prorrogables automáticamente por iguales períodos salvo denuncia expresa de alguna de las partes con al menos 15 días de antelación.
+
+Octava. Protección de datos
+Ambas partes se comprometen a cumplir con el RGPD (UE 2016/679) y LOPDGDD (LO 3/2018). LA INMOBILIARIA tratará datos personales (DNI, domicilios) solo para la mediación, con consentimiento expreso del propietario. Ver política en {URL_DATOS_INMO}.
+
+Novena. Firma digital
+Se autoriza firma electrónica cualificada (eIDAS) para mayor agilidad, sin perjuicio de la firma manuscrita.
+
+Décima. Jurisdicción
+Para la resolución de cualquier conflicto derivado de este contrato, las partes se someten a los Juzgados y Tribunales de {JURISDICCION}, con renuncia expresa a cualquier otro fuero que pudiera corresponderles.
+
+Y en prueba de conformidad, firman el presente contrato por duplicado ejemplar y a un solo efecto, en el lugar y fecha indicados.
+
+EL/LOS PROPIETARIO/S                          LA INMOBILIARIA
+
+{FIRMAS_VENDEDORES}                           [Firma y sello con logo]
+
+Generado por: {USUARIO_GENERADOR} - {FECHA_GENERACION}
