@@ -1,33 +1,24 @@
-# config.py
 import os
-from datetime import datetime
 
-# Paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(BASE_DIR, "contratos")
-DOCS_DIR = os.path.join(BASE_DIR, "documentos")
-PLANTILLA_PATH = os.path.join(BASE_DIR, "plantilla_intermediacion.txt")
-LEGAL_HTML = os.path.join(BASE_DIR, "legal.html")
+# --- Configuración de la Base de Datos ---
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_USER = os.environ.get("DB_USER")
+DB_PASS = os.environ.get("DB_PASS")
+DB_NAME = os.environ.get("DB_NAME")
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-os.makedirs(DOCS_DIR, exist_ok=True)
+# --- Configuración de Ollama ---
+OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY")
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
 
-# Inmobiliaria
-INMO = {
-    "razon": "HOGAR FAMILIAR INMOBILIARIA, S.L.",
-    "cif": "B01755321",
-    "domicilio": "Avda de Madrid n° 21, San Fernando de Henares (Madrid)",
-    "representante": "Ivan Muñoz León",
-    "url": "https://hogarfamiliar.es",
-    "email": "contacto@hogarfamiliar.es",
-    "dpo": "dpo@hogarfamiliar.es"
-}
+# --- Configuración de JWT para Single Sign-On (SSO) ---
+# Se espera que la clave pública se proporcione como una cadena, posiblemente con saltos de línea.
+# El archivo .env debe contener la clave en el formato correcto.
+JWT_PUBLIC_KEY = os.environ.get("JWT_PUBLIC_KEY")
+JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "RS256")
 
-# Usuarios
-USERS = {
-    "ivan": "c4ca4238a0b923820dcc509a6f75849b",  # 1234
-    "maria": "1a1dc91c907325c69271ddf0c944bc72"  # secreto
-}
+# --- Otras configuraciones ---
+UPLOADS_DIR = "uploads"
 
-# Ollama Cloud
-OLLAMA_MODEL = "gpt-oss:120b-cloud"  # IA legal potente
+# Crear el directorio de subidas si no existe
+if not os.path.exists(UPLOADS_DIR):
+    os.makedirs(UPLOADS_DIR)
