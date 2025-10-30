@@ -6,9 +6,10 @@ ollama
 python-dotenv
 pymysql
 passlib[bcrypt]
-pyjwt
+pyjwt[crypto]
 pytesseract
 opencv-python-headless
 Pillow
 reportlab
 numpy
+jinja2

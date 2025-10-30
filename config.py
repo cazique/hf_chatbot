@@ -2,6 +2,18 @@
 
 import os
 from dotenv import load_dotenv
+from passlib.context import CryptContext
+
+# --- Configuración de la Inmobiliaria ---
+INMO = {
+    "nombre": "Hogar Feliz Inmobiliaria",
+    "representante": "Juan Pérez",
+    "cif": "B-01755321",
+    "url": "https://hogarfamiliar.es/privacidad"
+}
+
+# --- Configuración de Rutas de Plantillas ---
+PLANTILLA_PATH = os.path.join(os.path.dirname(__file__), 'plantilla_intermediacion.txt')
 
 # Cargar variables de entorno desde .env
 load_dotenv()
@@ -9,9 +21,21 @@ load_dotenv()
 # --- Configuración de la Aplicación ---
 APP_NAME = "Hogar Feliz Chatbot"
 APP_VERSION = "1.0.0"
+
+# --- Configuración de Seguridad ---
 SECRET_KEY = os.getenv('SECRET_KEY', 'default-secret-key-for-dev')
-ALGORITHM = "HS256"
+JWT_PUBLIC_KEY = os.getenv('JWT_PUBLIC_KEY')
+ALGORITHM = "RS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', 30))
+
+# Contexto de encriptación para contraseñas locales
+bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Usuarios locales como fallback si SSO/JWT no está disponible
+LOCAL_USERS = {
+    "ivan": "$2b$12$E.E9.Qo8/qGaX3e.d0SOW.IBs1G0T/sT/vtyT7.qmO5g2D23rt/eS", # 1234
+    "maria": "$2b$12$6Nl89N1Y1AHe3YqfBqI0z.l1CgP/T8fB32bN8Nq.EK8aAs/5iN.bK"  # secreto
+}
 
 # --- Configuración de la Base de Datos (MariaDB) ---
 DB_USER = os.getenv('MARIADB_USER', 'user')
@@ -19,7 +43,6 @@ DB_PASSWORD = os.getenv('MARIADB_PASSWORD', 'password')
 DB_NAME = os.getenv('MARIADB_DATABASE', 'chatbot_db')
 DB_HOST = os.getenv('MARIADB_HOST', 'db') # Nombre del servicio en docker-compose
 DB_PORT = int(os.getenv('MARIADB_PORT', 3306))
-DB_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # --- Configuración de Directorios ---
 # Crear directorios si no existen
@@ -39,12 +62,7 @@ def parse_ollama_providers():
     """
     providers_str = os.getenv('OLLAMA_PROVIDERS')
     if not providers_str:
-        # Devuelve un proveedor local por defecto si la variable no está configurada
-        return [{
-            'name': 'Default Local',
-            'url': 'http://localhost:11434',
-            'key': 'ollama'
-        }]
+        return [{'name': 'Default Local', 'url': 'http://localhost:11434', 'key': 'ollama'}]
 
     providers_list = []
     providers_data = providers_str.split(',')
@@ -57,16 +75,9 @@ def parse_ollama_providers():
             continue
     return providers_list
 
-# Exponer la lista de proveedores parseados
 PROVIDERS = parse_ollama_providers()
 
 # --- Configuración del Modelo de Lenguaje (LLM) ---
-# Opciones: "llama3.1", "llama3", "mistral", "mixtral", "gemma", etc.
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3')
 TEMPERATURE = float(os.getenv('TEMPERATURE', 0.1))
-STREAMING = True # Dejar en True para una mejor experiencia de usuario
-
-# --- Configuración de OCR (Tesseract) ---
-# Ruta a Tesseract-OCR si no está en el PATH del sistema.
-# En Docker, generalmente está en el PATH si se instala correctamente.
-# TESSERACT_CMD = '/usr/bin/tesseract'
+STREAMING = True

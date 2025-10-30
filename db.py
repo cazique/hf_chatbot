@@ -1,7 +1,7 @@
 # ./db.py
 
 import pymysql
-import hashlib
+import json
 from config import DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, DB_PORT
 
 def get_db_connection():
@@ -20,11 +20,7 @@ def get_db_connection():
         print(f"Error al conectar a MariaDB: {e}")
         return None
 
-def hash_password(password):
-    """Genera un hash seguro de la contraseña."""
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def create_user_table():
+def create_users_table():
     """Crea la tabla de usuarios si no existe."""
     connection = get_db_connection()
     if connection:
@@ -35,7 +31,7 @@ def create_user_table():
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         username VARCHAR(50) UNIQUE NOT NULL,
                         email VARCHAR(120) UNIQUE NOT NULL,
-                        password_hash VARCHAR(64) NOT NULL,
+                        password_hash VARCHAR(128) NOT NULL,
                         is_admin BOOLEAN DEFAULT FALSE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -65,45 +61,52 @@ def create_chat_history_table():
         finally:
             connection.close()
 
-def get_user_by_username(username):
-    """Busca un usuario por su nombre de usuario."""
+def create_contratos_table():
+    """Crea la tabla de contratos si no existe."""
     connection = get_db_connection()
     if connection:
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-                return cursor.fetchone()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS contratos (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        datos_contrato TEXT NOT NULL,
+                        ruta_pdf VARCHAR(255),
+                        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                    )
+                """)
+            connection.commit()
         finally:
             connection.close()
-    return None
 
-def get_user_by_id(user_id):
-    """Busca un usuario por su ID."""
+def get_or_create_user(username, email, is_admin=False):
+    """Obtiene un usuario si existe, de lo contrario lo crea."""
     connection = get_db_connection()
-    if connection:
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT id, username, email, is_admin FROM users WHERE id = %s", (user_id,))
-                return cursor.fetchone()
-        finally:
-            connection.close()
-    return None
+    if not connection: return None
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM users WHERE username = %s OR email = %s", (username, email))
+            user = cursor.fetchone()
+            if user:
+                return user
 
-def get_all_users():
-    """Recupera todos los usuarios de la base de datos."""
-    connection = get_db_connection()
-    if connection:
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT id, username, email, is_admin FROM users")
-                return cursor.fetchall()
-        except pymysql.Error as e:
-            print(f"Error al obtener todos los usuarios: {e}")
-            return []
-        finally:
-            connection.close()
-    return []
+            placeholder_hash = "local_or_sso_user"
+            cursor.execute(
+                "INSERT INTO users (username, email, password_hash, is_admin) VALUES (%s, %s, %s, %s)",
+                (username, email, placeholder_hash, is_admin)
+            )
+            connection.commit()
 
+            cursor.execute("SELECT * FROM users WHERE id = %s", (cursor.lastrowid,))
+            return cursor.fetchone()
+
+    except pymysql.Error as e:
+        print(f"Error en get_or_create_user: {e}")
+        return None
+    finally:
+        connection.close()
 
 def save_chat_message(user_id, session_id, message, is_user_message):
     """Guarda un mensaje de chat en la base de datos."""
@@ -133,9 +136,39 @@ def get_chat_history(user_id, session_id):
             connection.close()
     return history
 
-def initialize_database():
-    """Inicializa las tablas de la base de datos."""
-    create_user_table()
+def guardar_contrato(user_id, datos_contrato_json, ruta_pdf):
+    """Guarda los datos de un contrato generado en la base de datos."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                sql = "INSERT INTO contratos (user_id, datos_contrato, ruta_pdf) VALUES (%s, %s, %s)"
+                cursor.execute(sql, (user_id, datos_contrato_json, ruta_pdf))
+            connection.commit()
+            return cursor.lastrowid
+        except pymysql.Error as e:
+            print(f"Error al guardar el contrato: {e}")
+            return None
+        finally:
+            connection.close()
+
+def get_all_users():
+    """Recupera todos los usuarios de la base de datos."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT id, username, email, is_admin FROM users ORDER BY id")
+                return cursor.fetchall()
+        except pymysql.Error as e:
+            print(f"Error al obtener todos los usuarios: {e}")
+            return []
+        finally:
+            connection.close()
+    return []
+
+def init_db():
+    """Inicializa todas las tablas de la base de datos."""
+    create_users_table()
     create_chat_history_table()
-    # Aquí se podría añadir un usuario administrador por defecto si no existe
-    # Por ejemplo, checkear si existe 'admin' y si no, crearlo.
+    create_contratos_table()
