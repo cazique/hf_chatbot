@@ -1,60 +1,123 @@
-version: '3.8'
+## Compose version is omitted because modern Docker Compose
+## automatically selects a version.  Specifying a version can lead
+## to warnings about obsolescence.
+# version: '3.8'
 
 services:
-  app:
+  # Aplicación Flask principal
+  immodoc-web:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: hf_chatbot_app
-    restart: unless-stopped
+    container_name: immodoc_web
     ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
-      - ./uploaded_docs:/app/uploaded_docs
-      - ./generated_pdfs:/app/generated_pdfs
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - chatbot_network
-
-  db:
-    image: mariadb:10.6
-    container_name: hf_chatbot_db
-    restart: unless-stopped
+      - "5000:5000"
     environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
-      MARIADB_DATABASE: ${MARIADB_DATABASE}
-      MARIADB_USER: ${MARIADB_USER}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-your_secret_key_here_change_in_production}
+      - UPLOAD_FOLDER=/app/uploads
+      - MAX_FILE_SIZE=209715200  # 200MB
+      - OLLAMA_API_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama2
+      - DEBUG=False
+      # Ruta al archivo de configuración de proveedores de IA dentro del contenedor
+      - AI_CONFIG_PATH=/app/ai_config.json
     volumes:
-      - mariadb_data:/var/lib/mysql
-    ports:
-      - "3307:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MARIADB_USER}", "-p${MARIADB_PASSWORD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - chatbot_network
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: hf_chatbot_tunnel
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+      # Persist uploaded files on the host
+      - ./uploads:/app/uploads
+      # Persist the SQLite databases in a named volume.  Using a
+      # container-managed volume avoids filesystem permission issues
+      # when the project is located in a cloud‑synchronised folder (por
+      # ejemplo, iCloud Drive), que suele montar los archivos en modo
+      # solo lectura dentro del contenedor.  La base de datos se
+      # inicializará automáticamente al arrancar el contenedor.
+      - immodoc-db:/app/db
+      # Persist the AI provider configuration
+      - ./ai_config.json:/app/ai_config.json
     depends_on:
-      - app
+      - ollama
     networks:
-      - chatbot_network
+      - immodoc-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Servicio Ollama para IA
+  ollama:
+    image: ollama/ollama:latest
+    container_name: immodoc_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - immodoc-network
+    restart: unless-stopped
+    # La sección de despliegue se ha eliminado para evitar que Docker
+    # requiera GPUs NVIDIA por defecto.  Si dispone de GPU y desea
+    # habilitar la aceleración, añada la sección 'deploy' que incluye
+    # la reserva de dispositivos NVIDIA como se documenta en la
+    # documentación de Ollama.  De este modo, la aplicación podrá
+    # ejecutarse en sistemas sin GPU sin producir errores.
+
+  # Chatbot service basado en Chainlit
+  immodoc-chatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile.chatbot
+    container_name: immodoc_chatbot
+    ports:
+      - "8501:8501"
+    environment:
+      - UPLOAD_FOLDER=/app/uploads
+      - AI_CONFIG_PATH=/app/ai_config.json
+      # Dirección base del backend Flask para que Chainlit envíe
+      # solicitudes de OCR y optimización.  Utilizamos el nombre
+      # del servicio de Docker Compose para enrutar internamente.
+      - BACKEND_URL=http://immodoc-web:5000
+    volumes:
+      - ./uploads:/app/uploads
+      - ./ai_config.json:/app/ai_config.json
+    depends_on:
+      - immodoc-web
+    networks:
+      - immodoc-network
+    restart: unless-stopped
+
+  # Nginx como reverse proxy (opcional pero recomendado para producción)
+  nginx:
+    image: nginx:alpine
+    container_name: immodoc_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - immodoc-web
+    networks:
+      - immodoc-network
+    restart: unless-stopped
+    profiles:
+      - production
 
 networks:
-  chatbot_network:
+  immodoc-network:
     driver: bridge
 
 volumes:
-  mariadb_data:
+  ollama-data:
+    driver: local
+  # Named volume to store the SQLite databases used by the web
+  # application.  This evita problemas de permisos cuando se montan
+  # directorios del host que se encuentran en rutas no compatibles con
+  # Docker (por ejemplo, carpetas de iCloud).
+  immodoc-db:
+    driver: local

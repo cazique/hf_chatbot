@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración del Sistema - ImmoDoc OCR{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Configuración del Sistema</h2>
+        <p class="text-gray-600 dark:text-gray-400">Configuración avanzada y dependencias</p>
+    </div>
+    
+    <!-- Estado de Dependencias -->
+    <div class="glass rounded-xl p-6">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Estado de Dependencias
+        </h3>
+        <div class="space-y-3">
+            {% if deps %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2 {% if deps.tesseract %}text-green-500{% else %}text-red-500{% endif %}" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="{% if deps.tesseract %}M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z{% else %}M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z{% endif %}"></path>
+                    </svg>
+                    <span class="font-semibold text-gray-900 dark:text-gray-200">Tesseract OCR</span>
+                </div>
+                <span class="px-3 py-1 text-xs font-semibold rounded-full {% if deps.tesseract %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% else %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                    {% if deps.tesseract %}Disponible{% else %}No Disponible{% endif %}
+                </span>
+            </div>
+            
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2 {% if deps.poppler %}text-green-500{% else %}text-red-500{% endif %}" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="{% if deps.poppler %}M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z{% else %}M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z{% endif %}"></path>
+                    </svg>
+                    <span class="font-semibold text-gray-900 dark:text-gray-200">Poppler Utils</span>
+                </div>
+                <span class="px-3 py-1 text-xs font-semibold rounded-full {% if deps.poppler %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% else %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                    {% if deps.poppler %}Disponible{% else %}No Disponible{% endif %}
+                </span>
+            </div>
+            
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2 {% if deps.ghostscript %}text-green-500{% else %}text-red-500{% endif %}" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="{% if deps.ghostscript %}M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z{% else %}M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z{% endif %}"></path>
+                    </svg>
+                    <span class="font-semibold text-gray-900 dark:text-gray-200">Ghostscript</span>
+                </div>
+                <span class="px-3 py-1 text-xs font-semibold rounded-full {% if deps.ghostscript %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% else %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                    {% if deps.ghostscript %}Disponible{% else %}No Disponible{% endif %}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Configuración OCR -->
+    <div class="glass rounded-xl p-6">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
+            </svg>
+            Idiomas OCR Disponibles
+        </h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-center">
+                <span class="text-2xl">🇪🇸</span>
+                <p class="text-sm font-semibold text-gray-900 dark:text-gray-200 mt-1">Español</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400">spa</p>
+            </div>
+            <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-center">
+                <span class="text-2xl">🇬🇧</span>
+                <p class="text-sm font-semibold text-gray-900 dark:text-gray-200 mt-1">English</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400">eng</p>
+            </div>
+            <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-center">
+                <span class="text-2xl">🏴</span>
+                <p class="text-sm font-semibold text-gray-900 dark:text-gray-200 mt-1">Català</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400">cat</p>
+            </div>
+            <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-center">
+                <span class="text-2xl">🇫🇷</span>
+                <p class="text-sm font-semibold text-gray-900 dark:text-gray-200 mt-1">Français</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400">fra</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuración de Proveedores de IA -->
+    <div class="glass rounded-xl p-6">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6M9 21h6M12 17v4"></path>
+            </svg>
+            Configuración de Proveedores de IA
+        </h3>
+        <div class="space-y-3 mb-6">
+            {% for provider in ai_providers %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                <div>
+                    <span class="font-semibold text-gray-900 dark:text-gray-200">{{ provider.name }}</span>
+                    <span class="text-xs text-gray-600 dark:text-gray-400"> (Tipo: {{ provider.type }})</span>
+                </div>
+                <div class="space-x-2">
+                    {% if provider.id == active_provider_id %}
+                    <span class="px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Activo</span>
+                    {% else %}
+                    <button class="activate-provider px-2 py-1 text-xs font-semibold rounded text-blue-600 hover:underline" data-id="{{ provider.id }}">Activar</button>
+                    {% endif %}
+                    <button class="delete-provider px-2 py-1 text-xs font-semibold rounded text-red-600 hover:underline" data-id="{{ provider.id }}">Eliminar</button>
+                    <button class="test-provider px-2 py-1 text-xs font-semibold rounded text-gray-600 hover:underline" data-id="{{ provider.id }}">Probar</button>
+                </div>
+            </div>
+            {% endfor %}
+            {% if ai_providers|length == 0 %}
+            <p class="text-sm text-gray-600 dark:text-gray-400">No hay proveedores configurados.</p>
+            {% endif %}
+        </div>
+        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Añadir Nuevo Proveedor</h4>
+        <form id="add-provider-form" class="space-y-4">
+            <div>
+                <label for="provider-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
+                <input type="text" id="provider-name" class="w-full mt-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Ej: Mi OpenAI" required>
+            </div>
+            <div>
+                <label for="provider-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Proveedor</label>
+                <select id="provider-type" class="w-full mt-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="ollama">Ollama</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                </select>
+            </div>
+            <div>
+                <label for="provider-apikey" class="block text-sm font-medium text-gray-700 dark:text-gray-300">API Key</label>
+                <input type="password" id="provider-apikey" class="w-full mt-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="••••••••••••••••">
+            </div>
+            <div>
+                <label for="provider-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Modelo (Opcional)</label>
+                <input type="text" id="provider-model" class="w-full mt-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Ej: gpt-oss:20b-cloud">
+            </div>
+            <div>
+                <label for="provider-baseurl" class="block text-sm font-medium text-gray-700 dark:text-gray-300">URL Base (Opcional)</label>
+                <input type="text" id="provider-baseurl" class="w-full mt-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Ej: https://api.ollama.com">
+            </div>
+            <button type="submit" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Añadir Proveedor</button>
+        </form>
+        <!-- Script para gestionar acciones de proveedores de IA -->
+        <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('add-provider-form');
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const data = {
+                    name: document.getElementById('provider-name').value,
+                    type: document.getElementById('provider-type').value,
+                    api_key: document.getElementById('provider-apikey').value,
+                    base_url: document.getElementById('provider-baseurl').value,
+                    model: document.getElementById('provider-model').value
+                };
+                const res = await fetch('/admin/api/providers/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    location.reload();
+                } else {
+                    const msg = await res.json();
+                    alert(msg.error || 'Error al añadir proveedor');
+                }
+            });
+            document.querySelectorAll('.activate-provider').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const id = this.dataset.id;
+                    const res = await fetch(`/admin/api/providers/activate/${id}`, { method: 'POST' });
+                    if (res.ok) {
+                        location.reload();
+                    } else {
+                        const msg = await res.json();
+                        alert(msg.error || 'Error al activar proveedor');
+                    }
+                });
+            });
+            document.querySelectorAll('.delete-provider').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const id = this.dataset.id;
+                    if (!confirm('¿Estás seguro de que deseas eliminar este proveedor?')) return;
+                    const res = await fetch(`/admin/api/providers/delete/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        location.reload();
+                    } else {
+                        const msg = await res.json();
+                        alert(msg.error || 'Error al eliminar proveedor');
+                    }
+                });
+            });
+            document.querySelectorAll('.test-provider').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const id = this.dataset.id;
+                    const res = await fetch(`/admin/api/providers/test/${id}`);
+                    const result = await res.json();
+                    if (result.status === 'ok') {
+                        alert('Conexión exitosa');
+                    } else {
+                        alert(result.message || 'La conexión falló');
+                    }
+                });
+            });
+        });
+        </script>
+    </div>
+
+    <!-- Información del Sistema -->
+    <div class="glass rounded-xl p-6">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Información del Sistema
+        </h3>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span class="text-gray-600 dark:text-gray-400">Versión</span>
+                <span class="font-semibold text-gray-900 dark:text-gray-200">2.0.0</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span class="text-gray-600 dark:text-gray-400">Python</span>
+                <span class="font-semibold text-gray-900 dark:text-gray-200">3.12+</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span class="text-gray-600 dark:text-gray-400">Framework</span>
+                <span class="font-semibold text-gray-900 dark:text-gray-200">Flask 3.0.3</span>
+            </div>
+            <div class="flex justify-between py-2">
+                <span class="text-gray-600 dark:text-gray-400">Tamaño Máximo Archivo</span>
+                <span class="font-semibold text-gray-900 dark:text-gray-200">100 MB</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

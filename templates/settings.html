@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración de Usuario - ImmoDoc OCR{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-4">Configuración de Usuario</h2>
+<form method="post" class="space-y-4">
+    <div>
+        <label for="theme" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tema</label>
+        <select id="theme" name="theme" class="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700">
+            <option value="auto" {% if current_user.theme == 'auto' %}selected{% endif %}>Automático</option>
+            <option value="light" {% if current_user.theme == 'light' %}selected{% endif %}>Claro</option>
+            <option value="dark" {% if current_user.theme == 'dark' %}selected{% endif %}>Oscuro</option>
+        </select>
+    </div>
+    <div>
+        <label for="color_scheme" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Esquema de Color</label>
+        <select id="color_scheme" name="color_scheme" class="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700">
+            <option value="green" {% if current_user.color_scheme == 'green' %}selected{% endif %}>Verde</option>
+            <option value="blue" {% if current_user.color_scheme == 'blue' %}selected{% endif %}>Azul</option>
+            <option value="purple" {% if current_user.color_scheme == 'purple' %}selected{% endif %}>Morado</option>
+        </select>
+    </div>
+    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar</button>
+</form>
+{% endblock %}

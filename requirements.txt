@@ -1,15 +1,15 @@
-chainlit
-langchain
-langchain-community
-langchain-core
-ollama
-python-dotenv
-pymysql
-passlib[bcrypt]
-pyjwt[crypto]
-pytesseract
-opencv-python-headless
-Pillow
-reportlab
-numpy
-jinja2
+# Dependencias actualizadas para corregir advertencias de seguridad y agregar "requests".
+Flask==3.1.2
+Flask-Login==0.6.3
+pypdf==6.1.3
+Pillow==12.0.0
+Werkzeug==3.1.3
+pdf2image==1.17.0
+pytesseract==0.3.13
+requests==2.31.0
+# Fijamos una versión estable de Chainlit para evitar problemas
+# con Pydantic y la configuración por defecto.  Versiones
+# superiores a 0.7 introducen cambios en la configuración
+# que requieren clases adicionales no definidas.
+chainlit==0.6.5
+chainlit==0.7.400

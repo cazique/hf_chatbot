@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Subir Documento - ImmoDoc OCR{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-4">Subir Documento</h2>
+<form id="upload-form" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="space-y-4">
+  <input type="hidden" name="action" value="single">
+  <!-- Área de arrastrar y soltar -->
+  <div id="dropzone" class="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 bg-white dark:bg-gray-800">
+    <svg class="w-10 h-10 mb-3 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 17h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 8a5 5 0 0 0 1 9z"/><path d="M12 16V9"/><path d="M9.5 11.5 12 9l2.5 2.5"/></svg>
+    <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Arrastra y suelta</span> tu PDF aquí o haz clic para seleccionarlo</p>
+    <p id="file-name" class="text-xs text-gray-500 dark:text-gray-400"></p>
+    <input id="file-input" name="file" type="file" accept="application/pdf" class="hidden" required>
+  </div>
+  <!-- Opciones -->
+  <div class="flex items-center">
+    <input id="optimize" type="checkbox" name="optimize" class="mr-2 h-4 w-4 text-blue-600 bg-gray-100 border-gray-300 rounded">
+    <label for="optimize" class="text-sm text-gray-700 dark:text-gray-300">Optimizar PDF (reducir tamaño)</label>
+  </div>
+  <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Procesar</button>
+</form>
+
+<script>
+// Drag & drop logic
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const fileNameEl = document.getElementById('file-name');
+
+dropzone.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    fileNameEl.textContent = file.name;
+  }
+});
+
+['dragenter', 'dragover'].forEach(eventName => {
+  dropzone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropzone.classList.add('border-blue-500', 'dark:border-blue-400');
+  });
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+  dropzone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropzone.classList.remove('border-blue-500', 'dark:border-blue-400');
+  });
+});
+
+dropzone.addEventListener('drop', (e) => {
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    fileInput.files = files;
+    fileNameEl.textContent = files[0].name;
+  }
+});
+</script>
+{% endblock %}

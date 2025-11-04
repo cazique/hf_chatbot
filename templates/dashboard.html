@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Control - ImmoDoc OCR{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-4">Panel de Control</h2>
+<p class="mb-4">Aquí aparecerán estadísticas y documentos recientes.</p>
+
+<!-- Estadísticas básicas -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  <!-- Total de documentos -->
+  <div class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
+      <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path d="M7 3h6l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+        <path d="M13 3v5h5"/>
+        <path d="M7 13h10M7 16h10"/>
+      </svg>
+    </div>
+    <div class="ml-4">
+      <p class="text-sm text-gray-600 dark:text-gray-400">Documentos Totales</p>
+      <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ total_docs }}</p>
+    </div>
+  </div>
+  <!-- Espacio ahorrado -->
+  <div class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div class="p-3 rounded-full bg-green-100 dark:bg-green-900">
+      <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="5" y="10" width="3" height="7" rx="1"/>
+        <rect x="10.5" y="8" width="3" height="9" rx="1"/>
+        <rect x="16" y="6" width="3" height="11" rx="1"/>
+        <path d="M4 19h16"/>
+      </svg>
+    </div>
+    <div class="ml-4">
+      <p class="text-sm text-gray-600 dark:text-gray-400">Espacio Ahorrado</p>
+      <p class="text-3xl font-bold text-green-600 dark:text-green-400">{{ space_saved }}</p>
+    </div>
+  </div>
+  <!-- Últimos documentos -->
+  <div class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div class="p-3 rounded-full bg-purple-100 dark:bg-purple-900">
+      <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    </div>
+    <div class="ml-4">
+      <p class="text-sm text-gray-600 dark:text-gray-400">Últimos Documentos</p>
+      <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ docs|length }}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla de documentos recientes -->
+<div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow">
+    <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+                <th class="px-4 py-2 text-left">ID</th>
+                <th class="px-4 py-2 text-left">Archivo Original</th>
+                <th class="px-4 py-2 text-left">Archivo Procesado</th>
+                <th class="px-4 py-2 text-left">Fecha</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% for doc in docs %}
+            <tr>
+                <td class="px-4 py-2">{{ doc[0] }}</td>
+                <td class="px-4 py-2 truncate" title="{{ doc[1] }}">{{ doc[1] }}</td>
+                <td class="px-4 py-2 truncate" title="{{ doc[2] }}">{{ doc[2] }}</td>
+                <td class="px-4 py-2">{{ doc[5] }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

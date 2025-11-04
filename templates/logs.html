@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Procesos - ImmoDoc OCR{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">Historial de Documentos Procesados</h2>
+{% if logs %}
+<div class="overflow-x-auto">
+  <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
+    <thead>
+      <tr class="bg-gray-50 dark:bg-gray-700">
+        <th class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">ID</th>
+        <th class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">Archivo Original</th>
+        <th class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">Archivo Procesado</th>
+        <th class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">Tamaño Original</th>
+        <th class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">Tamaño Nuevo</th>
+        <th class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">Ahorro</th>
+        <th class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">Fecha</th>
+        <th class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">Acción</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+      {% for entry in logs %}
+      {% set id, input_path, output_path, original_size, new_size, ts, mode, action = entry %}
+      <tr>
+        <td class="px-4 py-2 whitespace-nowrap">{{ id }}</td>
+        <td class="px-4 py-2 truncate max-w-xs" title="{{ input_path }}">{{ input_path | basename }}</td>
+        <td class="px-4 py-2 truncate max-w-xs" title="{{ output_path }}">{{ output_path | basename }}</td>
+        <td class="px-4 py-2">{{ (original_size/1024)|int }} KB</td>
+        <td class="px-4 py-2">{{ (new_size/1024)|int }} KB</td>
+        <td class="px-4 py-2">{{ ((original_size - new_size)/1024)|int }} KB</td>
+        <td class="px-4 py-2">{{ ts[:19] }}</td>
+        <td class="px-4 py-2">
+          {% if output_path %}
+          {% set out_name = output_path | basename %}
+          <a href="{{ url_for('download_processed', filename=out_name) }}" class="text-blue-600 hover:underline">Descargar</a>
+          {% else %}-{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-gray-600 dark:text-gray-400">No hay registros disponibles.</p>
+{% endif %}
+{% endblock %}

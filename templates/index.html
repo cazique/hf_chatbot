@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Bienvenido - ImmoDoc OCR{% endblock %}
+
+{% block content %}
+<div class="text-center mt-8">
+    <h2 class="text-3xl font-bold mb-4">Bienvenido a ImmoDoc OCR</h2>
+    <p class="mb-6">Gestione y procese sus documentos de manera eficiente.</p>
+    {% if current_user.is_authenticated %}
+    <a href="{{ url_for('dashboard') }}" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Ir al panel</a>
+    {% else %}
+    <a href="{{ url_for('login') }}" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Iniciar sesión</a>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Características Principales - ImmoDoc OCR{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">Características Principales</h2>
+<p class="mb-4 text-gray-700 dark:text-gray-300">ImmoDoc OCR ofrece un conjunto de herramientas para la gestión de documentos inmobiliarios. A continuación se presentan las funcionalidades más destacadas del sistema:</p>
+<ul class="space-y-4">
+  <li class="flex items-start">
+    <span class="mr-3 text-blue-600 dark:text-blue-400">
+      <!-- Scanner icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 9h16"/><path d="M7 13h3M12 13h5"/><path d="M4 3h4M16 21h4"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">OCR y Reconocimiento de Texto</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Digitaliza documentos escaneados y obtén su contenido en formato editable mediante Tesseract OCR integrado.</p>
+    </div>
+  </li>
+  <li class="flex items-start">
+    <span class="mr-3 text-green-600 dark:text-green-400">
+      <!-- Compress icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9l-3-3m12 12l-3-3M15 9l3-3M9 15l-3 3"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">Optimización de PDFs</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Reduce el tamaño de tus PDFs manteniendo la calidad, ideal para almacenamiento y envío eficiente.</p>
+    </div>
+  </li>
+  <li class="flex items-start">
+    <span class="mr-3 text-blue-600 dark:text-blue-400">
+      <!-- Chart icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="5" y="10" width="3" height="7" rx="1"/><rect x="10.5" y="8" width="3" height="9" rx="1"/><rect x="16" y="6" width="3" height="11" rx="1"/><path d="M4 19h16"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">Panel de Control</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Visualiza estadísticas de uso, documentos procesados y espacio ahorrado en una interfaz intuitiva.</p>
+    </div>
+  </li>
+  <li class="flex items-start">
+    <span class="mr-3 text-purple-600 dark:text-purple-400">
+      <!-- AI icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="8" width="12" height="10" rx="2"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M12 8V5M12 5h2M12 5h-2"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">Integración con IA</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Configura proveedores de modelos de lenguaje (LLM) como Ollama y otros para realizar consultas inteligentes sobre tus documentos.</p>
+    </div>
+  </li>
+  <li class="flex items-start">
+    <span class="mr-3 text-red-600 dark:text-red-400">
+      <!-- Upload icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 17h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 8a5 5 0 0 0 1 9z"/><path d="M12 16V9"/><path d="M9.5 11.5 12 9l2.5 2.5"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">Carga y Procesamiento por Lotes</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Sube uno o varios archivos a la vez con soporte de arrastrar y soltar; el sistema procesará cada documento y optimizará el tamaño si se solicita.</p>
+    </div>
+  </li>
+  <li class="flex items-start">
+    <span class="mr-3 text-yellow-600 dark:text-yellow-400">
+      <!-- Extract icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 3h6l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M13 3v5h5"/><path d="M7 13h10M7 16h10"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">Extracción de Texto</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Obtén el texto existente de un PDF digital sin aplicar OCR, ideal para documentos que ya contienen texto embebido.</p>
+    </div>
+  </li>
+  <li class="flex items-start">
+    <span class="mr-3 text-teal-600 dark:text-teal-400">
+      <!-- Image conversion icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3-3-2 2-3-3-3 3-2-2-4 4"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">Conversión a Imágenes</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Transforma las páginas de un PDF en imágenes individuales para inspección rápida o creación de miniaturas.</p>
+    </div>
+  </li>
+  <li class="flex items-start">
+    <span class="mr-3 text-pink-600 dark:text-pink-400">
+      <!-- User icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">Gestión de Usuarios</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Crea y administra usuarios con diferentes temas y esquemas de color; configura permisos de administrador para acceder a opciones avanzadas.</p>
+    </div>
+  </li>
+  <li class="flex items-start">
+    <span class="mr-3 text-indigo-600 dark:text-indigo-400">
+      <!-- Logs icon -->
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M9 3v4"/><path d="M15 3v4"/><path d="M4 9h16"/></svg>
+    </span>
+    <div>
+      <h3 class="font-semibold text-gray-900 dark:text-gray-200">Historial y Logs</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Consulta un listado de documentos procesados, tamaños originales y optimizados, fechas y usuarios que realizaron la acción.</p>
+    </div>
+  </li>
+</ul>
+{% endblock %}

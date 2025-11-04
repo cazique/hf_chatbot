@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar Sesión - ImmoDoc OCR{% endblock %}
+
+{#
+  Esta plantilla ofrece una experiencia de inicio de sesión moderna, con
+  un diseño dividido: una ilustración inmobiliaria a la izquierda en
+  pantallas grandes y el formulario a la derecha.  Para pantallas
+  pequeñas, la ilustración se oculta y el formulario ocupa todo el
+  ancho.  La ilustración se almacena en ``static/login_image.png`` y
+  puede cambiarse por otra imagen más adecuada a la marca.  El
+  formulario incluye campos con bordes suaves y colores de acento
+  consistentes con el resto del panel.
+#}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row items-center justify-center h-full w-full">
+  <!-- Sección ilustrativa: visible sólo en pantallas grandes -->
+  <div class="hidden lg:flex flex-col items-center justify-center w-1/2 p-8">
+    <img src="{{ url_for('static', filename='login_image.png') }}" alt="Ilustración inmobiliaria" class="w-full h-auto">
+    <h2 class="mt-4 text-2xl font-bold text-center text-blue-600 dark:text-blue-400">Bienvenido a ImmoDoc</h2>
+    <p class="mt-2 text-center text-gray-600 dark:text-gray-300">Digitaliza y gestiona tus documentos de forma rápida y segura.</p>
+  </div>
+  <!-- Formulario de acceso -->
+  <div class="w-full lg:w-1/2 max-w-md p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold mb-6 text-center">Iniciar sesión</h2>
+    <form method="post" action="/login" class="space-y-4">
+      <div>
+        <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Usuario</label>
+        <input type="text" id="username" name="username" placeholder="Nombre de usuario" required
+               class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña</label>
+        <input type="password" id="password" name="password" placeholder="••••••••" required
+               class="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <button type="submit" class="w-full py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">Entrar</button>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="space-y-2 mt-4">
+        {% for category, message in messages %}
+        <div class="p-2 rounded-md {{ 'bg-red-100 text-red-700' if category == 'error' else 'bg-green-100 text-green-700' }}">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+    </form>
+  </div>
+</div>
+{% endblock %}

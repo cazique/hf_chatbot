@@ -1,96 +1,150 @@
-# Hogar Feliz Chatbot - Asistente de Contratos Inmobiliarios
+# ImmoDoc OCR
 
-Este proyecto es un chatbot avanzado diseñado para asistir a los agentes de la inmobiliaria "Hogar Feliz" en la creación y gestión de borradores de contratos de alquiler. La aplicación está construida con Chainlit, utiliza modelos de lenguaje de Ollama, y está completamente dockerizada para un despliegue sencillo y robusto.
+ImmoDoc OCR es una aplicación de gestión documental para inmobiliarias
+con capacidades de OCR (reconocimiento óptico de caracteres) y
+optimización de archivos PDF.  Este proyecto incluye una integración
+modular con proveedores de modelos de lenguaje (LLM) que permite
+configurar y cambiar el proveedor de IA sin modificar el código
+principal.
 
-## Características Principales
+El diseño de la interfaz de administración se ha inspirado en plantillas
+modernas de paneles, utilizando **Tailwind CSS** junto con la
+biblioteca de componentes **Flowbite**.  Esto permite contar con un
+menú lateral navegable, tarjetas de estadísticas y elementos
+interactivos (menús desplegables, modales, etc.) sin depender de
+servicios externos.  Todos los recursos se cargan desde CDNs públicos
+y pueden ser autohospedados en el directorio `static/` si así se
+desea.
 
-- **Autenticación Segura:** Sistema de login basado en JWT para proteger el acceso a la aplicación.
-- **Interfaz de Chat Inteligente:** Interfaz conversacional fluida gracias a Chainlit para interactuar con el asistente.
-- **Soporte Multi-IA:** Permite configurar y seleccionar en tiempo real diferentes proveedores de modelos de lenguaje (locales o en la nube) a través de Ollama.
-- **Procesamiento Avanzado de Documentos (OCR):**
-  - Sube imágenes de documentos (DNI, pasaportes, etc.).
-  - **Corrección de Orientación:** Detecta y rota automáticamente las imágenes.
-  - **Recorte de Perspectiva:** Transforma la imagen para darle un aspecto "escaneado", aislando el documento del fondo.
-  - Extracción de texto precisa con Tesseract.
-- **Panel de Administración:** Los usuarios marcados como `is_admin` tienen acceso a comandos especiales, como `/admin_users` para listar todos los usuarios del sistema.
-- **Base de Datos Persistente:** Utiliza MariaDB (MySQL) para almacenar usuarios y historiales de chat, asegurando que las conversaciones se guarden entre sesiones.
-- **Generación de Documentos PDF:** Crea un borrador del contrato en formato PDF al final de la conversación, incluyendo el historial del chat y las imágenes procesadas de los documentos.
-- **Contexto Legal Integrado:** El chatbot está enriquecido con información clave de la Ley de Arrendamientos Urbanos (LAU) de España para generar contratos más precisos.
-- **Despliegue Sencillo con Docker:** Totalmente contenedorizado con `docker-compose`, facilitando el despliegue en cualquier entorno.
-- **Túnel Seguro (Opcional):** Integración con Cloudflare Tunnel para exponer la aplicación de forma segura a internet.
+## Configuración de Proveedores de IA
 
-## Arquitectura
+La aplicación utiliza un archivo JSON (`ai_config.json`) para
+almacenar la lista de proveedores configurados y seleccionar cuál es
+el activo.  El proveedor activo se utiliza para todas las llamadas
+relacionadas con modelos de lenguaje.  La configuración se monta en
+el contenedor Docker mediante un volumen, lo que permite modificarla
+sin reconstruir la imagen.
 
-El sistema se compone de tres servicios principales orquestados por Docker Compose:
+El formato del archivo es el siguiente:
 
-1.  **`app`:** El contenedor principal que ejecuta la aplicación Chainlit en Python. Se encarga de la lógica de negocio, la interacción con el LLM, el OCR y la generación de PDF.
-2.  **`db`:** Un contenedor MariaDB que proporciona la base de datos persistente para usuarios e historiales de chat.
-3.  **`cloudflared`:** (Opcional) Un contenedor que crea un túnel seguro con Cloudflare para exponer la aplicación a internet sin necesidad de abrir puertos.
-
-## Cómo Empezar
-
-### Prerrequisitos
-
-- Docker y Docker Compose instalados.
-- Git para clonar el repositorio.
-- Una cuenta de Cloudflare y un token de túnel si deseas acceso externo (opcional).
-
-### Pasos de Instalación
-
-1.  **Clonar el repositorio:**
-    ```bash
-    git clone <URL_DEL_REPOSITORIO>
-    cd hf_chatbot
-    ```
-
-2.  **Configurar el entorno:**
-    Copia el archivo de ejemplo `.env.example` a `.env` y personaliza las variables.
-    ```bash
-    cp .env.example .env
-    ```
-    Edita el archivo `.env` con tu editor preferido:
-    - `SECRET_KEY`: Una clave secreta larga y aleatoria para los JWT.
-    - `OLLAMA_PROVIDERS`: Configura tus puntos de acceso a Ollama. El formato es `"Nombre|URL|Clave,..."`.
-    - `MARIADB_*`: Contraseñas y nombres para la base de datos.
-    - `CLOUDFLARE_TUNNEL_TOKEN`: (Opcional) Tu token de Cloudflare Tunnel.
-
-3.  **Construir y ejecutar los contenedores:**
-    Este comando construirá la imagen de la aplicación, descargará la de MariaDB y las iniciará en segundo plano.
-    ```bash
-    sudo docker compose up -d --build
-    ```
-
-4.  **Acceder a la aplicación:**
-    - **Localmente:** Abre tu navegador y ve a `http://localhost:8000`.
-    - **A través de Cloudflare:** Accede a la URL que te proporcionó Cloudflare para tu túnel.
-
-5.  **Crear un usuario (Primer uso):**
-    La primera vez, necesitarás crear un usuario en la base de datos para poder iniciar sesión. Puedes hacerlo conectándote a la base de datos directamente o mediante un script de inicialización. *(Instrucciones para crear un usuario administrador se añadirán en futuras versiones).*
-
-## Uso de la Aplicación
-
-1.  **Inicio de Sesión:** Al acceder, la aplicación te pedirá tu nombre de usuario y contraseña.
-2.  **Selección de IA:** Elige con qué proveedor de modelo de lenguaje quieres trabajar en esta sesión.
-3.  **Conversación:** Describe los detalles del contrato que necesitas. Puedes subir imágenes de documentos arrastrándolas al chat.
-4.  **Comandos de Admin:** Si eres administrador, escribe `/admin_users` para ver la lista de usuarios.
-5.  **Generación de Contrato:** Cuando tengas toda la información, indica al bot "genera el contrato" o "ya está todo" para recibir el PDF.
-
-## Estructura del Proyecto
-
+```json
+{
+  "default_provider": "ollama_cloud_default",
+  "providers": [
+    {
+      "id": "ollama_cloud_default",
+      "name": "Ollama Cloud (Default)",
+      "type": "ollama",
+      "api_key": "TU_API_KEY",
+      "base_url": "https://ollama.com",
+      "model": "gpt-oss:20b-cloud"
+    }
+  ]
+}
 ```
-/
-├── .env.example          # Plantilla para variables de entorno
-├── app.py                # Lógica principal de la aplicación Chainlit
-├── auth.py               # Funciones de autenticación (JWT, login)
-├── config.py             # Carga y gestión de la configuración
-├── db.py                 # Interacción con la base de datos MariaDB
-├── ocr_utils.py          # Lógica para el procesamiento OCR avanzado
-├── pdf_utils.py          # Utilidades para la creación de PDFs con ReportLab
-├── legal.py              # Provee contexto legal sobre alquileres
-├── legal.html            # Plantilla HTML para mostrar el contexto legal
-├── Dockerfile            # Define el contenedor de la aplicación Python
-├── docker-compose.yml    # Orquesta los servicios (app, db, cloudflared)
-├── requirements.txt      # Dependencias de Python
-└── public/
-    └── style.css         # (Opcional) Estilos CSS personalizados para Chainlit
+
+Donde:
+
+- **id**: un identificador único para cada proveedor.  Se genera
+  automáticamente al añadir uno nuevo desde el panel de administración.
+- **name**: nombre legible que se mostrará en la interfaz de
+  administración.
+- **type**: tipo de proveedor (`ollama`, `openai`, `anthropic`, etc.).
+- **api_key**: clave de autenticación.  Ollama Cloud y otros
+  servicios requieren una API key para poder utilizar el modelo.
+- **base_url**: URL base del servicio.  Para Ollama Cloud normalmente
+  es `https://ollama.com`.  Si utiliza un despliegue de Ollama
+  autohospedado, indique la URL de su instancia.
+- **model**: nombre del modelo a utilizar por defecto.  Ollama Cloud
+  proporciona varios modelos; puede consultar su documentación para
+  elegir uno adecuado.
+
+### Añadir y gestionar proveedores
+
+Desde la interfaz de administración (`/admin/config`) un usuario con
+permisos de administrador puede:
+
+1. Visualizar los proveedores configurados y ver cuál está activo.
+2. Activar un proveedor diferente.
+3. Eliminar proveedores existentes.
+4. Añadir nuevos proveedores indicando nombre, tipo, clave, modelo y
+   URL base.
+5. Probar la conexión de un proveedor para verificar que las
+   credenciales y la URL son correctas.
+
+Las acciones anteriores se realizan a través de llamadas a los
+siguientes endpoints:
+
+| Método | Endpoint                                     | Descripción                                     |
+|-------|----------------------------------------------|------------------------------------------------|
+| POST  | `/admin/api/providers/add`                   | Añade un proveedor.  Recibe JSON con `name`, `type`, `api_key`, `base_url` y `model`. |
+| POST  | `/admin/api/providers/activate/<provider_id>` | Activa el proveedor cuyo `id` se especifica. |
+| DELETE| `/admin/api/providers/delete/<provider_id>`   | Elimina el proveedor indicado. |
+| GET   | `/admin/api/providers/test/<provider_id>`     | Prueba la conexión del proveedor indicado. |
+
+### Configuración de Ollama Cloud
+
+Ollama Cloud es el proveedor por defecto.  Para configurarlo:
+
+1. Cree una cuenta en [Ollama](https://ollama.com) y solicite acceso
+   a **Ollama Cloud**.
+2. Obtenga su **API key** desde el panel de usuario de Ollama.
+3. Edite el archivo `ai_config.json` y sustituya el valor de
+   `YOUR_API_KEY` por su clave real.
+4. Asegúrese de que el archivo `ai_config.json` se monta en el
+   contenedor Docker a través del volumen configurado en
+   `docker-compose.yml`.
+
+Una vez configurado, el proveedor `Ollama Cloud` estará listo para
+generar respuestas mediante el endpoint `/api/generate` tal y como se
+detalla en la [documentación oficial de Ollama Cloud](https://docs.ollama.com/cloud).
+
+## Puesta en marcha
+
+1. Asegúrese de tener instalados Docker y Docker Compose.
+2. Clone el repositorio y sitúese en el directorio del proyecto.
+3. Cree (o edite) el archivo `ai_config.json` en la raíz siguiendo el
+   formato mencionado arriba.
+4. Cree el directorio `db` en la raíz del proyecto (si no existe).
+   Este directorio se utilizará para almacenar las bases de datos
+   SQLite (`users.db` y `ocr_logs.db`).  Al montar una carpeta en
+   lugar de archivos individuales se evita el problema de que Docker
+   genere directorios en lugar de ficheros cuando estos no existen,
+   lo cual provoca errores al abrir las bases de datos.
+5. Ejecute `docker-compose up --build` para levantar los servicios.
+6. Acceda a la aplicación en `http://localhost:5000` y utilice las
+   credenciales por defecto (`admin`/`admin`) para iniciar sesión.
+7. Acceda a `/admin/config` para gestionar los proveedores de IA.
+
+**Nota:** No ejecutes la aplicación local ni el script `run_local.sh`
+con `sudo`.  Usar `sudo` crea los archivos de base de datos con
+permisos de superusuario, impidiendo que la aplicación los modifique y
+provocando errores como *«attempt to write a readonly database»*.  Si
+ya ejecutaste el script con `sudo`, elimina el directorio `db/` y
+ejecuta de nuevo `run_local.sh` sin privilegios de administrador.
+
+### Ejecución local sin Docker
+
+Si desea ejecutar la aplicación en un entorno local (sin contenedores),
+puede utilizar el script proporcionado `run_local.sh` que prepara un
+entorno virtual e instala las dependencias.  Simplemente ejecute:
+
+```bash
+chmod +x run_local.sh
+./run_local.sh
 ```
+
+El script creará un entorno virtual en el directorio `.venv`,
+instalará las dependencias listadas en `requirements.txt` y lanzará
+automáticamente la aplicación Flask.  Asegúrese de tener Python
+3.10+ instalado en su sistema.
+
+## Notas de desarrollo
+
+Los módulos bajo `services/` son implementaciones mínimas para
+mantener funcional el backend durante la refactorización.  Deben
+reemplazarse por versiones completas que integren librerías como
+Tesseract, Ghostscript, pdfminer, etc.  Asimismo, la clase
+`OllamaCloudProvider` implementada en `ia_providers.py` muestra cómo
+comunicarse con la API REST de Ollama; futuros proveedores deben
+seguir esta interfaz heredando de `LLMProvider`.

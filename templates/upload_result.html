@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Documento Procesado - ImmoDoc OCR{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-4">Documento Procesado</h2>
+<p class="mb-3 text-gray-700 dark:text-gray-300">El archivo se ha procesado correctamente. Utiliza el siguiente enlace para descargar tu PDF procesado.</p>
+<a href="{{ download_url }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+  <!-- Download icon -->
+  <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path d="M12 5v9"/>
+    <path d="M8.5 10.5 12 14l3.5-3.5"/>
+    <path d="M5 19h14"/>
+  </svg>
+  Descargar {{ file_name }}
+</a>
+{% endblock %}
